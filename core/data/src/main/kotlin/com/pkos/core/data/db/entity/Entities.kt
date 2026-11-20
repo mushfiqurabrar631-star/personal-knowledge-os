@@ -130,6 +130,12 @@ data class AttachmentEntity(
     @ColumnInfo(name = "created_at") val createdAt: Long,
     /** Text read from the file (document text or OCR), v3. The original file is never changed. */
     @ColumnInfo(name = "extracted_text") val extractedText: String? = null,
+    /** Notion File Upload id (v4). Valid for attaching for ~1 h; after attaching it is never re-sent. */
+    @ColumnInfo(name = "notion_file_upload_id") val notionFileUploadId: String? = null,
+    @ColumnInfo(name = "notion_uploaded_at") val notionUploadedAt: Long? = null,
+    @ColumnInfo(name = "notion_attached", defaultValue = "0") val notionAttached: Boolean = false,
+    /** Why the file is not in Notion (e.g. TOO_LARGE); null when attached or pending. */
+    @ColumnInfo(name = "notion_skip_reason") val notionSkipReason: String? = null,
 )
 
 /** Capture provenance (spec 3.2). */
@@ -187,6 +193,30 @@ data class NotionMappingEntity(
     @ColumnInfo(name = "remote_hash") val remoteHash: String,
     @ColumnInfo(name = "body_written") val bodyWritten: Boolean,
     @ColumnInfo(name = "last_synced_at") val lastSyncedAt: Long,
+)
+
+/** Notion properties the owner chose to keep as they are in Notion for one item (v4, JSON array of names). */
+@Entity(tableName = "notion_kept_properties")
+data class NotionKeptPropertiesEntity(
+    @PrimaryKey @ColumnInfo(name = "knowledge_id") val knowledgeId: String,
+    @ColumnInfo(name = "property_names") val propertyNames: String,
+)
+
+/** An unresolved Notion conflict shown to the owner (v4). Nothing is written until the owner decides. */
+@Entity(tableName = "notion_conflicts")
+data class NotionConflictEntity(
+    @PrimaryKey @ColumnInfo(name = "knowledge_id") val knowledgeId: String,
+    /** REMOTE_EDITED or ADOPTION_REVIEW */
+    val kind: String,
+    @ColumnInfo(name = "page_id") val pageId: String,
+    @ColumnInfo(name = "page_url") val pageUrl: String?,
+    /** JSON array of differing property names. */
+    val properties: String,
+    /** JSON object name → value in Notion. */
+    @ColumnInfo(name = "remote_values") val remoteValues: String,
+    /** JSON object name → value PKOS would write. */
+    @ColumnInfo(name = "local_values") val localValues: String,
+    @ColumnInfo(name = "detected_at") val detectedAt: Long,
 )
 
 /** Write-ahead journal for the Notion sync engine (ADR 0002). One row per capture: the latest intent. */

@@ -23,6 +23,8 @@ data class AppSettings(
     val floatingCaptureEnabled: Boolean = false,
     /** Gemini model used when cloud AI is on (owner-editable; the key itself is kept in the Keystore, not here). */
     val aiModel: String = com.pkos.core.data.processing.GeminiProvider.DEFAULT_MODEL,
+    /** Automatic Notion sync; can only be switched on after a successful live connection check (M4). */
+    val notionSyncEnabled: Boolean = false,
 )
 
 interface SettingsRepository {
@@ -33,6 +35,7 @@ interface SettingsRepository {
     suspend fun setLocalOnlyByDefault(enabled: Boolean)
     suspend fun setFloatingCaptureEnabled(enabled: Boolean)
     suspend fun setAiModel(model: String)
+    suspend fun setNotionSyncEnabled(enabled: Boolean)
 }
 
 private val Context.pkosSettings: DataStore<Preferences> by preferencesDataStore(name = "pkos_settings")
@@ -47,6 +50,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         val localOnly = booleanPreferencesKey("local_only_by_default")
         val floating = booleanPreferencesKey("floating_capture_enabled")
         val aiModel = stringPreferencesKey("ai_model")
+        val notionSync = booleanPreferencesKey("notion_sync_enabled")
     }
 
     override val settings: Flow<AppSettings> = store.data.map { p ->
@@ -57,6 +61,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
             localOnlyByDefault = p[Keys.localOnly] ?: false,
             floatingCaptureEnabled = p[Keys.floating] ?: false,
             aiModel = p[Keys.aiModel]?.takeIf { it.isNotBlank() } ?: com.pkos.core.data.processing.GeminiProvider.DEFAULT_MODEL,
+            notionSyncEnabled = p[Keys.notionSync] ?: false,
         )
     }
 
@@ -66,4 +71,5 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
     override suspend fun setLocalOnlyByDefault(enabled: Boolean) { store.edit { it[Keys.localOnly] = enabled } }
     override suspend fun setFloatingCaptureEnabled(enabled: Boolean) { store.edit { it[Keys.floating] = enabled } }
     override suspend fun setAiModel(model: String) { store.edit { it[Keys.aiModel] = model.trim() } }
+    override suspend fun setNotionSyncEnabled(enabled: Boolean) { store.edit { it[Keys.notionSync] = enabled } }
 }

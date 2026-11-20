@@ -33,9 +33,12 @@ data class IntegrationStatus(
  * M1: no Notion token, Google account or AI key can be stored yet, so every integration honestly reports
  * NOT_CONNECTED. M3/M4/M5 replace this with checks against encrypted credentials and verified connections.
  */
-class IntegrationStatusProvider(private val aiKeySaved: () -> Boolean = { false }) {
+class IntegrationStatusProvider(
+    private val aiKeySaved: () -> Boolean = { false },
+    private val notionReady: () -> Boolean = { false },
+) {
     fun current(): IntegrationStatus = IntegrationStatus(
-        notion = ConnectionState.NOT_CONNECTED,
+        notion = if (notionReady()) ConnectionState.CONNECTED else ConnectionState.NOT_CONNECTED,
         drive = ConnectionState.NOT_CONNECTED,
         aiProvider = if (aiKeySaved()) ConnectionState.CONNECTED else ConnectionState.NOT_CONNECTED,
     )
@@ -65,13 +68,42 @@ class AppContainer(
     val secrets: com.pkos.app.processing.SecretStore = com.pkos.app.processing.KeystoreSecretStore(context),
     ocr: com.pkos.core.data.processing.OcrEngine? = com.pkos.app.processing.MlKitOcrEngine(context),
     private val http: com.pkos.core.data.processing.HttpPost = com.pkos.app.processing.UrlConnectionHttp,
+    notionTransport: com.pkos.core.notion.api.HttpTransport = com.pkos.app.notion.OkHttpNotionTransport(),
 ) {
     val knowledge = KnowledgeRepository(database)
     val categories = CategoryRepository(database)
     val syncOverview = SyncOverviewRepository(database)
     val collections = CollectionRepository(database)
     val storage = StorageRepository(context)
-    val integrations = IntegrationStatusProvider { secrets.get(com.pkos.app.processing.GEMINI_KEY) != null }
+    @Volatile private var notionEnabledCache = false
+    val integrations = IntegrationStatusProvider(
+        aiKeySaved = { secrets.get(com.pkos.app.processing.GEMINI_KEY) != null },
+        notionReady = { notionEnabledCache && secrets.get(com.pkos.app.notion.NOTION_TOKEN) != null },
+    )
+
+    /** One client for the whole app so the 3 requests/second limit is shared by every sync. */
+    val notionClient = com.pkos.core.notion.api.NotionClient(notionTransport, { secrets.get(com.pkos.app.notion.NOTION_TOKEN) })
+    val notionSync by lazy { com.pkos.core.data.notion.NotionSyncService(database, notionClient, attachments::resolve) }
+    val notionScheduler = com.pkos.app.notion.NotionSyncScheduler(context)
+
+    /** Queues a Notion sync for this item if the owner turned sync on and a token is saved. Otherwise nothing. */
+    suspend fun requestNotionSync(itemId: String) {
+        val enabled = settings.settings.first().notionSyncEnabled
+        notionEnabledCache = enabled
+        if (!enabled || secrets.get(com.pkos.app.notion.NOTION_TOKEN) == null) return
+        notionSync.markQueued(itemId)
+        notionScheduler.enqueue(itemId)
+    }
+
+    /** Queues every item that changed since its last verified sync (app start, "Sync now", sync switched on). */
+    suspend fun requestNotionSyncAll(policy: androidx.work.ExistingWorkPolicy = androidx.work.ExistingWorkPolicy.KEEP): Int {
+        val enabled = settings.settings.first().notionSyncEnabled
+        notionEnabledCache = enabled
+        if (!enabled || secrets.get(com.pkos.app.notion.NOTION_TOKEN) == null) return 0
+        val ids = notionSync.itemsNeedingSync()
+        ids.forEach { notionSync.markQueued(it); notionScheduler.enqueue(it, policy = policy) }
+        return ids.size
+    }
     val attachments = com.pkos.core.data.capture.AttachmentStore(java.io.File(context.filesDir, StorageRepository.ATTACHMENTS_DIR))
     val captureRepository = com.pkos.core.data.capture.CaptureRepository(
         database, attachments, freeBytes = freeBytes,

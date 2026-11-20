@@ -109,6 +109,20 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
     private val loseResponses = ArrayDeque<Pair<String, String>>()
     private var clock = 0
     var throwNetworkOnNext = false
+    /** file_upload id → status ("pending" | "uploaded" | "attached"). */
+    val fileUploads = linkedMapOf<String, String>()
+    var failNextSend = false
+
+    override suspend fun executeMultipart(
+        url: String, headers: Map<String, String>, partName: String, fileName: String, contentType: String, file: java.io.File,
+    ): HttpResponse {
+        val id = url.substringAfter("/file_uploads/").substringBefore("/send")
+        calls += Call(calls.size, "POST", "/file_uploads/$id/send", null)
+        if (failNextSend) { failNextSend = false; return error(503, "service_unavailable") }
+        if (fileUploads[id] != "pending") return error(400, "validation_error")
+        fileUploads[id] = "uploaded"
+        return ok(buildJsonObject { put("id", id); put("object", "file_upload"); put("status", "uploaded"); put("filename", fileName) })
+    }
 
     fun failNext(method: String, pathPrefix: String, status: Int, code: String = "error", retryAfter: String? = null) {
         routeFailures += RouteFailure(method, pathPrefix, status, code, retryAfter)
@@ -193,6 +207,11 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
             method == "GET" && pathOnly.startsWith("/data_sources/") -> notFound()
             method == "POST" && pathOnly == "/data_sources/$TEST_DS/query" -> query(body!!)
             method == "POST" && pathOnly == "/pages" -> create(body!!)
+            method == "POST" && pathOnly == "/file_uploads" -> {
+                val id = UUID.randomUUID().toString()
+                fileUploads[id] = "pending"
+                ok(buildJsonObject { put("id", id); put("object", "file_upload"); put("status", "pending") })
+            }
             method == "GET" && pathOnly.startsWith("/pages/") -> pages[pathOnly.removePrefix("/pages/")]?.let { ok(it) } ?: notFound()
             method == "PATCH" && pathOnly.startsWith("/pages/") -> update(pathOnly.removePrefix("/pages/"), body!!)
             method == "GET" && pathOnly.endsWith("/children") -> listChildren(
@@ -276,6 +295,11 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
                 else -> emptyList()
             }
             names.filter { options != null && it !in options }.forEach { optionViolations += "$name=$it" }
+            if (type == "files") for (f in v["files"]!!.jsonArray) {
+                val uploadId = f.jsonObject["file_upload"]?.jsonObject?.get("id")?.jsonPrimitive?.content ?: continue
+                // Only an "uploaded" (not yet attached) id may be attached; resending an attached id is rejected.
+                if (fileUploads[uploadId] != "uploaded") return error(400, "validation_error")
+            }
         }
         return null
     }
@@ -300,6 +324,20 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
     private fun toResponse(name: String, input: JsonObject): JsonObject {
         val type = input.keys.first { it != "type" }
         val value: JsonElement = when (type) {
+            // Real Notion turns an attached upload into a Notion-hosted "file" with a signed URL.
+            "files" -> buildJsonArray {
+                input["files"]!!.jsonArray.forEach { f ->
+                    val o = f.jsonObject
+                    val uploadId = o["file_upload"]?.jsonObject?.get("id")?.jsonPrimitive?.content
+                    if (uploadId != null) {
+                        fileUploads[uploadId] = "attached"
+                        addJsonObject {
+                            put("name", o["name"]!!); put("type", "file")
+                            putJsonObject("file") { put("url", "https://files.notion.test/$uploadId"); put("expiry_time", "2026-11-20T06:00:00.000Z") }
+                        }
+                    } else add(o)
+                }
+            }
             "title", "rich_text" -> richResponse(input[type]!!.jsonArray)
             "date" -> buildJsonObject {
                 put("start", input["date"]!!.jsonObject["start"]!!)

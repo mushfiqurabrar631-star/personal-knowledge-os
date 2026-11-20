@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
@@ -106,6 +107,7 @@ data class SettingsActions(
     val openBackupSync: () -> Unit,
     val onReplayOnboarding: () -> Unit,
     val openAiSettings: () -> Unit = {},
+    val openNotionSettings: () -> Unit = {},
 )
 
 @Composable
@@ -237,6 +239,7 @@ fun SettingsScreen(
             item {
                 Group {
                     LinkRow(Icons.Outlined.Hub, stringResource(R.string.settings_integrations), stringResource(R.string.settings_integrations_sub), actions.openIntegrations)
+                    LinkRow(Icons.Outlined.Sync, stringResource(R.string.notion_settings_title), stringResource(R.string.notion_settings_sub), actions.openNotionSettings)
                     LinkRow(Icons.Outlined.CloudSync, stringResource(R.string.settings_backup_sync), stringResource(R.string.settings_backup_sync_sub), actions.openBackupSync)
                 }
             }

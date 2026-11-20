@@ -81,9 +81,9 @@ private fun ConnectionPill(state: ConnectionState) = when (state) {
 
 /** Honest connection status for Notion, Drive and AI (spec 2.7 "Integrations"). */
 @Composable
-fun IntegrationsScreen(status: IntegrationStatus, onBack: () -> Unit, openAiSettings: () -> Unit = {}) {
+fun IntegrationsScreen(status: IntegrationStatus, onBack: () -> Unit, openAiSettings: () -> Unit = {}, openNotionSettings: () -> Unit = {}) {
     DetailScaffold(R.string.integrations_title, onBack) {
-        IntegrationCard(Icons.Outlined.Description, R.string.integration_notion, R.string.integration_notion_body, status.notion, "M4", "integration_notion")
+        IntegrationCard(Icons.Outlined.Description, R.string.integration_notion, R.string.integration_notion_body, status.notion, null, "integration_notion", openNotionSettings)
         IntegrationCard(Icons.Outlined.AddToDrive, R.string.integration_drive, R.string.integration_drive_body, status.drive, "M5", "integration_drive")
         IntegrationCard(Icons.Outlined.Psychology, R.string.integration_ai, R.string.integration_ai_body, status.aiProvider, null, "integration_ai", openAiSettings)
     }

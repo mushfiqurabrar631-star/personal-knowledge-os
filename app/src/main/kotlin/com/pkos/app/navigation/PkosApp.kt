@@ -171,6 +171,7 @@ fun PkosApp(
                         openIntegrations = { navController.navigate(IntegrationsRoute) },
                         openBackupSync = { navController.navigate(BackupSyncRoute) },
                         openAiSettings = { navController.navigate(AiSettingsRoute) },
+                        openNotionSettings = { navController.navigate(NotionSettingsRoute) },
                         onReplayOnboarding = { navController.navigate(OnboardingRoute) { popUpTo(0) { inclusive = true } } },
                     ),
                 )
@@ -178,8 +179,9 @@ fun PkosApp(
             composable<TopicsRoute> { TopicsRouteScreen(onBack = { navController.popBackStack() }) }
             composable<AskAiRoute> { AskAiScreen(onBack = { navController.popBackStack() }, openIntegrations = { navController.navigate(IntegrationsRoute) }) }
             composable<IntegrationsRoute> {
-                IntegrationsScreen(LocalAppContainer.current.integrations.current(), onBack = { navController.popBackStack() }, openAiSettings = { navController.navigate(AiSettingsRoute) })
+                IntegrationsScreen(LocalAppContainer.current.integrations.current(), onBack = { navController.popBackStack() }, openAiSettings = { navController.navigate(AiSettingsRoute) }, openNotionSettings = { navController.navigate(NotionSettingsRoute) })
             }
+            composable<NotionSettingsRoute> { com.pkos.app.feature.settings.NotionSettingsRoute(onBack = { navController.popBackStack() }) }
             composable<AiSettingsRoute> { com.pkos.app.feature.settings.AiSettingsRoute(onBack = { navController.popBackStack() }) }
             composable<BackupSyncRoute> { BackupSyncRouteScreen(onBack = { navController.popBackStack() }) }
             composable<ItemDetailRoute> { entry -> ItemDetailRouteScreen(entry.toRoute<ItemDetailRoute>().id, onBack = { navController.popBackStack() }) }

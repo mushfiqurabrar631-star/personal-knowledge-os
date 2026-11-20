@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
             container.categories.ensureStarterTaxonomy()
             // Re-queue anything left unfinished (app killed, update, reboot). Safe: the engine is idempotent.
             runCatching { container.scheduler.ensureScheduled(container.database.processingJobDao().itemsWithPendingJobs()) }
+            runCatching { container.requestNotionSyncAll() }
             val first = container.settings.settings.first()
             // Restore the owner's floating button after a reboot/app restart — only if the permission is still granted.
             if (first.floatingCaptureEnabled && com.pkos.app.capture.FloatingCaptureService.canRun(this@MainActivity)) {

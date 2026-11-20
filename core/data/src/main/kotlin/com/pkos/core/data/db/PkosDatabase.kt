@@ -43,10 +43,11 @@ import com.pkos.core.data.db.entity.TopicEntity
         ProcessingJobEntity::class, SyncJobEntity::class, NotionMappingEntity::class,
         NotionWriteIntentEntity::class, BackupSnapshotEntity::class, CollectionEntity::class,
         CollectionItemEntity::class, ItemVersionEntity::class, com.pkos.core.data.db.entity.AiRunEntity::class,
+        com.pkos.core.data.db.entity.NotionKeptPropertiesEntity::class, com.pkos.core.data.db.entity.NotionConflictEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class PkosDatabase : RoomDatabase() {
     abstract fun knowledgeDao(): KnowledgeDao
@@ -58,6 +59,7 @@ abstract class PkosDatabase : RoomDatabase() {
     abstract fun collectionDao(): CollectionDao
     abstract fun itemVersionDao(): ItemVersionDao
     abstract fun attachmentDao(): AttachmentDao
+    abstract fun notionDao(): com.pkos.core.data.db.dao.NotionDao
     abstract fun aiRunDao(): com.pkos.core.data.db.dao.AiRunDao
     abstract fun processingJobDao(): ProcessingJobDao
 

@@ -26,4 +26,18 @@ data class HttpResponse(
 interface HttpTransport {
     @Throws(IOException::class)
     suspend fun execute(request: HttpRequest): HttpResponse
+
+    /**
+     * multipart/form-data POST with one file part (Notion file upload "send" step).
+     * Default: unsupported, so pure-JSON transports keep working.
+     */
+    @Throws(IOException::class)
+    suspend fun executeMultipart(
+        url: String,
+        headers: Map<String, String>,
+        partName: String,
+        fileName: String,
+        contentType: String,
+        file: java.io.File,
+    ): HttpResponse = throw IOException("multipart not supported by this transport")
 }

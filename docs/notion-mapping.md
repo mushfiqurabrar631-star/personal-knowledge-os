@@ -104,3 +104,13 @@ Every request of a create and of an update+append was tested with both failure m
 | 404 (linked page) | Action required — page deleted; not recreated silently |
 | 400 | Action required — validation (likely schema changed) |
 | 409, 429, 5xx, network | Retry with backoff (honours Retry-After), max 8 attempts |
+
+## M4 additions (2026-11-20)
+- Live schema re-checked through the Notion connector (read-only): all 12 mapped properties present with the expected types;
+  options unchanged (category: AI, Education, Technology, Personal life, Mobile trick, idea · platform: Youtube, Facebook ·
+  Status: To Learn, Inbox, Completed, In Progress · Priority: High, Normal · Type: Website, File, Note, Idea, Research,
+  Resources, Video · Tags: Career, English, IELTS, Business, Education, Website, Technology).
+- `Files & media`: Notion File Upload API (single part, ≤ 5 MB). Attached once; never re-sent.
+- Updates PATCH only changed properties.
+- "Keep Notion" stores the differing property names per item; PKOS stops writing/comparing them for that item.
+- Still never written: Notes, Parent item, Sub-item. No property or option is created, renamed or deleted.

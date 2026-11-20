@@ -50,6 +50,11 @@ data class SyncItem(
     val privacyScope: PrivacyScope = PrivacyScope.NORMAL,
     val attachments: List<NotionFileRef> = emptyList(),
     val body: KnowledgeBody = KnowledgeBody(),
+    /**
+     * Notion property names the owner chose to keep as they are in Notion ("Keep Notion" after a conflict).
+     * PKOS never writes or compares them again for this item.
+     */
+    val remoteOwnedProperties: Set<String> = emptySet(),
 )
 
 /** Stored locally (notion_mappings table) after a verified sync. */

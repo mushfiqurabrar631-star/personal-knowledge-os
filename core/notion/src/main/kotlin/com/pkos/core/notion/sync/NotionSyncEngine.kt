@@ -150,8 +150,11 @@ class NotionSyncEngine(
             val detail = check.problems.filter { it.blocking }.joinToString { "${it.propertyName.trim()}: ${it.kind}" }
             return SyncOutcome.ActionRequired(ActionReason.SCHEMA_INCOMPATIBLE, detail)
         }
-        val mapping = mapper.map(item, check)
-        val managed = check.usable.values.map { it.name }
+        val captureName = check.usable.getValue(FieldKey.CAPTURE_ID).name
+        val owned = item.remoteOwnedProperties - captureName // Capture ID is how PKOS finds its page; always kept
+        val fullMapping = mapper.map(item, check)
+        val mapping = fullMapping.copy(properties = JsonObject(fullMapping.properties.filterKeys { it !in owned }))
+        val managed = check.usable.values.map { it.name }.filter { it !in owned }
         val intent = journalRead(item.captureId) ?: return retryOrGiveUp(RetryReason.LOCAL_JOURNAL, attempt, null)
 
         val ctx = Ctx(
@@ -161,7 +164,7 @@ class NotionSyncEngine(
             check = check,
             mapping = mapping,
             managed = managed,
-            captureProp = check.usable.getValue(FieldKey.CAPTURE_ID).name,
+            captureProp = captureName,
             expectedHash = PropertySnapshot.hashProperties(mapping.properties, managed),
             attempt = attempt,
             resolution = resolution,
@@ -269,8 +272,14 @@ class NotionSyncEngine(
                 if (!journalWrite(WriteIntent(ctx.item.captureId, WriteIntent.Kind.UPDATE, ctx.expectedHash, pageId, clock()))) {
                     return retryOrGiveUp(RetryReason.LOCAL_JOURNAL, ctx.attempt, null)
                 }
-                client.updatePageProperties(pageId, ctx.mapping.properties)
-                    .getOrElse { return failure(it, ctx.attempt, ActionReason.PAGE_MISSING) }
+                // PATCH only the properties whose value actually differs: unchanged values (including files that are
+                // already attached) are never re-sent, so nothing in Notion is rewritten without need.
+                val changed = PropertySnapshot.diff(remoteProps, ctx.mapping.properties, ctx.managed).toSet()
+                val patch = JsonObject(ctx.mapping.properties.filterKeys { it in changed })
+                if (patch.isNotEmpty()) {
+                    client.updatePageProperties(pageId, patch)
+                        .getOrElse { return failure(it, ctx.attempt, ActionReason.PAGE_MISSING) }
+                }
                 propertiesWritten = true
             }
             ctx.resolution == ConflictResolution.KEEP_REMOTE -> {

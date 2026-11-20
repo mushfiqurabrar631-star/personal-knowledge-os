@@ -81,8 +81,12 @@ class ProcessingFlowTest {
         rule.onNodeWithTag("ai_change_category").performScrollTo().performClick()
         waitFor(hasTestTag("category_option_sys-ideas"))
         rule.onNodeWithTag("category_option_sys-ideas").performClick()
-        rule.waitForIdle()
-        rule.waitUntil(5_000) { runBlocking { c.database.knowledgeDao().get(id)!!.categoryId == "sys-ideas" } }
+        // The ViewModel writes on its own coroutine; pump the main looper while Room finishes on its IO thread.
+        repeat(100) {
+            if (runBlocking { c.database.knowledgeDao().get(id)!!.categoryId } == "sys-ideas") return@repeat
+            rule.waitForIdle(); org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle(); Thread.sleep(50)
+        }
+        assertEquals("sys-ideas", runBlocking { c.database.knowledgeDao().get(id)!!.categoryId })
         val item = runBlocking { c.database.knowledgeDao().get(id)!! }
         assertEquals(ProcessingState.ORGANIZED, item.processingState)
         assertEquals("USER", JSONObject(item.fieldOrigins).getString("category"))

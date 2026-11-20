@@ -154,6 +154,9 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name")
     suspend fun all(): List<CategoryEntity>
 
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun get(id: String): CategoryEntity?
+
     @Query("SELECT * FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name")
     fun observeAll(): Flow<List<CategoryEntity>>
 }
@@ -183,6 +186,9 @@ interface TagDao {
 
     @Query("SELECT t.* FROM tags t JOIN knowledge_tags kt ON kt.tag_id = t.id WHERE kt.knowledge_id = :knowledgeId ORDER BY t.name")
     fun observeForItem(knowledgeId: String): Flow<List<TagEntity>>
+
+    @Query("SELECT t.* FROM tags t JOIN knowledge_tags kt ON kt.tag_id = t.id WHERE kt.knowledge_id = :knowledgeId ORDER BY t.name")
+    suspend fun forItem(knowledgeId: String): List<TagEntity>
 }
 
 @Dao
@@ -192,6 +198,9 @@ interface CaptureSourceDao {
 
     @Query("SELECT * FROM capture_sources WHERE knowledge_id = :knowledgeId ORDER BY captured_at")
     fun observeForItem(knowledgeId: String): Flow<List<CaptureSourceEntity>>
+
+    @Query("SELECT * FROM capture_sources WHERE knowledge_id = :knowledgeId ORDER BY captured_at")
+    suspend fun forItemOnce(knowledgeId: String): List<CaptureSourceEntity>
 }
 
 data class SyncQueueCounts(
@@ -297,3 +306,90 @@ interface AiRunDao {
     @Query("SELECT * FROM ai_runs WHERE knowledge_id = :knowledgeId ORDER BY created_at DESC LIMIT 1")
     fun observeLatest(knowledgeId: String): Flow<com.pkos.core.data.db.entity.AiRunEntity?>
 }
+
+@Dao
+interface NotionDao {
+    @Query("SELECT * FROM notion_mappings WHERE knowledge_id = :id")
+    suspend fun mapping(id: String): com.pkos.core.data.db.entity.NotionMappingEntity?
+
+    @Query("SELECT * FROM notion_mappings WHERE knowledge_id = :id")
+    fun observeMapping(id: String): Flow<com.pkos.core.data.db.entity.NotionMappingEntity?>
+
+    @Upsert
+    suspend fun upsertMapping(m: com.pkos.core.data.db.entity.NotionMappingEntity)
+
+    @Query("SELECT * FROM notion_write_intents WHERE capture_id = :id")
+    suspend fun intent(id: String): com.pkos.core.data.db.entity.NotionWriteIntentEntity?
+
+    @Upsert
+    suspend fun upsertIntent(i: com.pkos.core.data.db.entity.NotionWriteIntentEntity)
+
+    @Query("SELECT * FROM notion_kept_properties WHERE knowledge_id = :id")
+    suspend fun kept(id: String): com.pkos.core.data.db.entity.NotionKeptPropertiesEntity?
+
+    @Upsert
+    suspend fun upsertKept(k: com.pkos.core.data.db.entity.NotionKeptPropertiesEntity)
+
+    @Query("SELECT * FROM notion_conflicts WHERE knowledge_id = :id")
+    suspend fun conflict(id: String): com.pkos.core.data.db.entity.NotionConflictEntity?
+
+    @Query("SELECT * FROM notion_conflicts WHERE knowledge_id = :id")
+    fun observeConflict(id: String): Flow<com.pkos.core.data.db.entity.NotionConflictEntity?>
+
+    @Upsert
+    suspend fun upsertConflict(c: com.pkos.core.data.db.entity.NotionConflictEntity)
+
+    @Query("DELETE FROM notion_conflicts WHERE knowledge_id = :id")
+    suspend fun clearConflict(id: String)
+
+    @Query("SELECT * FROM sync_jobs WHERE id = :id")
+    suspend fun job(id: String): SyncJobEntity?
+
+    @Query("SELECT * FROM sync_jobs WHERE id = :id")
+    fun observeJob(id: String): Flow<SyncJobEntity?>
+
+    @Upsert
+    suspend fun upsertJob(job: SyncJobEntity)
+
+    /** Sync state only — never touches updated_at, so it cannot itself trigger another sync. */
+    @Query("UPDATE knowledge_items SET sync_state = :state WHERE id = :id")
+    suspend fun setSyncState(id: String, state: com.pkos.core.data.model.SyncState)
+
+    @Query("UPDATE attachments SET notion_file_upload_id = :uploadId, notion_uploaded_at = :at, notion_skip_reason = NULL WHERE id = :id")
+    suspend fun setUpload(id: String, uploadId: String, at: Long)
+
+    @Query("UPDATE attachments SET notion_skip_reason = :reason WHERE id = :id")
+    suspend fun setUploadSkipped(id: String, reason: String)
+
+    @Query("UPDATE attachments SET notion_attached = 1 WHERE id IN (:ids)")
+    suspend fun markAttached(ids: List<String>)
+
+    /**
+     * Items that should be (re)sent: shareable, finished processing, not deleted, and changed since the last
+     * verified sync (or never synced). Items waiting for the owner (conflict) are excluded.
+     */
+    @Query(
+        """
+        SELECT k.id FROM knowledge_items k
+        LEFT JOIN notion_mappings m ON m.knowledge_id = k.id
+        WHERE k.deleted_at IS NULL AND k.privacy_scope = 'NORMAL'
+          AND k.processing_state IN ('ORGANIZED','NEEDS_REVIEW','EXTRACTED')
+          AND k.sync_state NOT IN ('CONFLICT')
+          AND (m.knowledge_id IS NULL OR k.updated_at > m.last_synced_at)
+        ORDER BY k.created_at
+        """,
+    )
+    suspend fun itemsNeedingSync(): List<String>
+
+    @Query(
+        """
+        SELECT
+          (SELECT COUNT(*) FROM knowledge_items WHERE sync_state = 'NOTION_SYNCED') AS synced,
+          (SELECT COUNT(*) FROM knowledge_items WHERE sync_state IN ('NOTION_QUEUED','ERROR_RETRYABLE')) AS queued,
+          (SELECT COUNT(*) FROM knowledge_items WHERE sync_state IN ('CONFLICT','ERROR_ACTION_REQUIRED')) AS needs_action
+        """,
+    )
+    fun observeCounts(): Flow<NotionSyncCounts>
+}
+
+data class NotionSyncCounts(val synced: Int, val queued: Int, @ColumnInfo(name = "needs_action") val action: Int)

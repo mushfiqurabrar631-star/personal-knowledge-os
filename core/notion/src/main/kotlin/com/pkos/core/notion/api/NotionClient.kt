@@ -65,6 +65,33 @@ class NotionClient(
     suspend fun appendBlockChildren(blockId: String, children: JsonArray) =
         call("PATCH", "/blocks/$blockId/children", buildJsonObject { put("children", children) })
 
+    /** Step 1 of a single-part upload (files up to the workspace limit; free plan: 5 MB). */
+    suspend fun createFileUpload(filename: String, contentType: String) = call(
+        "POST", "/file_uploads",
+        buildJsonObject {
+            put("mode", kotlinx.serialization.json.JsonPrimitive("single_part"))
+            put("filename", kotlinx.serialization.json.JsonPrimitive(filename))
+            put("content_type", kotlinx.serialization.json.JsonPrimitive(contentType))
+        },
+    )
+
+    /** Step 2: send the bytes. Returns the file upload object; status must be "uploaded". */
+    suspend fun sendFileUpload(fileUploadId: String, file: java.io.File, filename: String, contentType: String): NotionResult<JsonObject> {
+        val token = tokenProvider()?.takeIf { it.isNotBlank() }
+            ?: return NotionResult.Err(NotionError(NotionErrorKind.NO_TOKEN, message = "Notion token not configured"))
+        rateLimiter.acquire()
+        val response = try {
+            transport.executeMultipart(
+                "$baseUrl/file_uploads/$fileUploadId/send",
+                mapOf("Authorization" to "Bearer $token", "Notion-Version" to apiVersion),
+                "file", filename, contentType, file,
+            )
+        } catch (e: IOException) {
+            return NotionResult.Err(NotionError(NotionErrorKind.NETWORK, message = e.javaClass.simpleName))
+        }
+        return parse(response)
+    }
+
     private suspend fun call(method: String, path: String, body: JsonObject?): NotionResult<JsonObject> {
         val token = tokenProvider()?.takeIf { it.isNotBlank() }
             ?: return NotionResult.Err(NotionError(NotionErrorKind.NO_TOKEN, message = "Notion token not configured"))
@@ -85,6 +112,10 @@ class NotionClient(
         } catch (e: IOException) {
             return NotionResult.Err(NotionError(NotionErrorKind.NETWORK, message = e.javaClass.simpleName))
         }
+        return parse(response)
+    }
+
+    private fun parse(response: HttpResponse): NotionResult<JsonObject> {
         if (response.status in 200..299) {
             val parsed = runCatching { Json.parseToJsonElement(response.body).jsonObject }.getOrNull()
                 ?: return NotionResult.Err(
