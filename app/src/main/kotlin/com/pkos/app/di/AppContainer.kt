@@ -33,11 +33,11 @@ data class IntegrationStatus(
  * M1: no Notion token, Google account or AI key can be stored yet, so every integration honestly reports
  * NOT_CONNECTED. M3/M4/M5 replace this with checks against encrypted credentials and verified connections.
  */
-class IntegrationStatusProvider {
+class IntegrationStatusProvider(private val aiKeySaved: () -> Boolean = { false }) {
     fun current(): IntegrationStatus = IntegrationStatus(
         notion = ConnectionState.NOT_CONNECTED,
         drive = ConnectionState.NOT_CONNECTED,
-        aiProvider = ConnectionState.NOT_CONNECTED,
+        aiProvider = if (aiKeySaved()) ConnectionState.CONNECTED else ConnectionState.NOT_CONNECTED,
     )
 }
 
@@ -62,20 +62,37 @@ class AppContainer(
     val database: PkosDatabase,
     val settings: SettingsRepository,
     freeBytes: () -> Long = { android.os.StatFs(context.filesDir.path).availableBytes },
+    val secrets: com.pkos.app.processing.SecretStore = com.pkos.app.processing.KeystoreSecretStore(context),
+    ocr: com.pkos.core.data.processing.OcrEngine? = com.pkos.app.processing.MlKitOcrEngine(context),
+    private val http: com.pkos.core.data.processing.HttpPost = com.pkos.app.processing.UrlConnectionHttp,
 ) {
     val knowledge = KnowledgeRepository(database)
     val categories = CategoryRepository(database)
     val syncOverview = SyncOverviewRepository(database)
     val collections = CollectionRepository(database)
     val storage = StorageRepository(context)
-    val integrations = IntegrationStatusProvider()
+    val integrations = IntegrationStatusProvider { secrets.get(com.pkos.app.processing.GEMINI_KEY) != null }
     val attachments = com.pkos.core.data.capture.AttachmentStore(java.io.File(context.filesDir, StorageRepository.ATTACHMENTS_DIR))
     val captureRepository = com.pkos.core.data.capture.CaptureRepository(
         database, attachments, freeBytes = freeBytes,
     )
 
-    /** Called after every successful capture (M3 schedules background processing here). */
-    var onCaptured: (String) -> Unit = {}
+    val processing = com.pkos.core.data.processing.ProcessingEngine(
+        database, attachments::resolve,
+        com.pkos.core.data.processing.DefaultTextExtractor(com.pkos.app.processing.PdfTextExtractor(context)), ocr,
+    )
+    val scheduler = com.pkos.app.processing.ProcessingScheduler(context)
+
+    /** Cloud AI only when the owner turned it on AND saved a key; otherwise everything stays on the phone (R-09). */
+    suspend fun cloudProvider(): com.pkos.core.data.processing.AiProvider? {
+        val s = settings.settings.first()
+        if (!s.cloudAiEnabled) return null
+        val key = secrets.get(com.pkos.app.processing.GEMINI_KEY) ?: return null
+        return com.pkos.core.data.processing.GeminiProvider(key, s.aiModel, http)
+    }
+
+    /** Called after every successful capture: background processing starts right away (spec 5.2). */
+    var onCaptured: (String) -> Unit = { scheduler.enqueue(it) }
 
     /** Single entry point for every capture path (Share, floating button, in-app sheet). */
     suspend fun capture(request: com.pkos.core.data.capture.CaptureRequest): com.pkos.core.data.capture.CaptureResult {

@@ -128,6 +128,8 @@ data class AttachmentEntity(
     @ColumnInfo(name = "cloud_file_id") val cloudFileId: String? = null,
     @ColumnInfo(name = "extraction_status") val extractionStatus: ExtractionStatus = ExtractionStatus.PENDING,
     @ColumnInfo(name = "created_at") val createdAt: Long,
+    /** Text read from the file (document text or OCR), v3. The original file is never changed. */
+    @ColumnInfo(name = "extracted_text") val extractedText: String? = null,
 )
 
 /** Capture provenance (spec 3.2). */
@@ -247,4 +249,25 @@ data class ItemVersionEntity(
     @ColumnInfo(name = "snapshot_json") val snapshotJson: String,
     @ColumnInfo(name = "changed_at") val changedAt: Long,
     @ColumnInfo(name = "change_source") val changeSource: FieldOrigin,
+)
+
+/** AI audit trail (spec 6: ai_runs). One row per classification attempt, local or cloud. */
+@Entity(
+    tableName = "ai_runs",
+    indices = [Index("knowledge_id"), Index("created_at")],
+    foreignKeys = [ForeignKey(entity = KnowledgeItemEntity::class, parentColumns = ["id"], childColumns = ["knowledge_id"], onDelete = ForeignKey.CASCADE)],
+)
+data class AiRunEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "knowledge_id") val knowledgeId: String,
+    val provider: String,
+    val model: String,
+    @ColumnInfo(name = "prompt_version") val promptVersion: String,
+    @ColumnInfo(name = "output_json") val outputJson: String?,
+    val confidence: Double?,
+    /** OK, INVALID_OUTPUT, RATE_LIMITED, QUOTA, AUTH, NETWORK, ERROR, SKIPPED */
+    val outcome: String,
+    @ColumnInfo(name = "error_detail") val errorDetail: String? = null,
+    @ColumnInfo(name = "input_chars") val inputChars: Int = 0,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
 )

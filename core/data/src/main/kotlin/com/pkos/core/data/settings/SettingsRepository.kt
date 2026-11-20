@@ -21,6 +21,8 @@ data class AppSettings(
     val localOnlyByDefault: Boolean = false,
     /** Floating capture bubble (needs "display over other apps"; off until the owner turns it on). */
     val floatingCaptureEnabled: Boolean = false,
+    /** Gemini model used when cloud AI is on (owner-editable; the key itself is kept in the Keystore, not here). */
+    val aiModel: String = com.pkos.core.data.processing.GeminiProvider.DEFAULT_MODEL,
 )
 
 interface SettingsRepository {
@@ -30,6 +32,7 @@ interface SettingsRepository {
     suspend fun setCloudAiEnabled(enabled: Boolean)
     suspend fun setLocalOnlyByDefault(enabled: Boolean)
     suspend fun setFloatingCaptureEnabled(enabled: Boolean)
+    suspend fun setAiModel(model: String)
 }
 
 private val Context.pkosSettings: DataStore<Preferences> by preferencesDataStore(name = "pkos_settings")
@@ -43,6 +46,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         val cloudAi = booleanPreferencesKey("cloud_ai_enabled")
         val localOnly = booleanPreferencesKey("local_only_by_default")
         val floating = booleanPreferencesKey("floating_capture_enabled")
+        val aiModel = stringPreferencesKey("ai_model")
     }
 
     override val settings: Flow<AppSettings> = store.data.map { p ->
@@ -52,6 +56,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
             cloudAiEnabled = p[Keys.cloudAi] ?: false,
             localOnlyByDefault = p[Keys.localOnly] ?: false,
             floatingCaptureEnabled = p[Keys.floating] ?: false,
+            aiModel = p[Keys.aiModel]?.takeIf { it.isNotBlank() } ?: com.pkos.core.data.processing.GeminiProvider.DEFAULT_MODEL,
         )
     }
 
@@ -60,4 +65,5 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
     override suspend fun setCloudAiEnabled(enabled: Boolean) { store.edit { it[Keys.cloudAi] = enabled } }
     override suspend fun setLocalOnlyByDefault(enabled: Boolean) { store.edit { it[Keys.localOnly] = enabled } }
     override suspend fun setFloatingCaptureEnabled(enabled: Boolean) { store.edit { it[Keys.floating] = enabled } }
+    override suspend fun setAiModel(model: String) { store.edit { it[Keys.aiModel] = model.trim() } }
 }

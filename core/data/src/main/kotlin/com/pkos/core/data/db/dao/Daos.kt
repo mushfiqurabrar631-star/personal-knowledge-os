@@ -6,6 +6,7 @@ import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import androidx.room.Upsert
 import com.pkos.core.data.db.entity.BackupSnapshotEntity
 import com.pkos.core.data.db.entity.CaptureSourceEntity
@@ -41,6 +42,9 @@ interface KnowledgeDao {
 
     @Upsert
     suspend fun upsert(item: KnowledgeItemEntity)
+
+    @Update
+    suspend fun update(item: KnowledgeItemEntity)
 
     @Query("SELECT * FROM knowledge_items WHERE id = :id")
     fun observe(id: String): Flow<KnowledgeItemEntity?>
@@ -95,6 +99,9 @@ interface KnowledgeDao {
     )
     suspend fun findDuplicate(hash: String?, url: String?, excludeId: String): String?
 
+    @Query("UPDATE knowledge_items SET processing_state = :state, updated_at = :at WHERE id = :id")
+    suspend fun setProcessingState(id: String, state: com.pkos.core.data.model.ProcessingState, at: Long)
+
     @Query("UPDATE knowledge_items SET pinned = :pinned, updated_at = :at WHERE id = :id")
     suspend fun setPinned(id: String, pinned: Boolean, at: Long)
 
@@ -143,6 +150,12 @@ interface CategoryDao {
 
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun count(): Int
+
+    @Query("SELECT * FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name")
+    suspend fun all(): List<CategoryEntity>
+
+    @Query("SELECT * FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name")
+    fun observeAll(): Flow<List<CategoryEntity>>
 }
 
 @Dao
@@ -164,6 +177,9 @@ interface TagDao {
 
     @Query("INSERT OR IGNORE INTO knowledge_tags (knowledge_id, tag_id) VALUES (:knowledgeId, :tagId)")
     suspend fun link(knowledgeId: String, tagId: String)
+
+    @Query("INSERT OR IGNORE INTO knowledge_tags (knowledge_id, tag_id) SELECT :knowledgeId, id FROM tags WHERE normalized_name = :normalized")
+    suspend fun linkByName(knowledgeId: String, normalized: String)
 
     @Query("SELECT t.* FROM tags t JOIN knowledge_tags kt ON kt.tag_id = t.id WHERE kt.knowledge_id = :knowledgeId ORDER BY t.name")
     fun observeForItem(knowledgeId: String): Flow<List<TagEntity>>
@@ -224,6 +240,9 @@ interface ItemVersionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(version: ItemVersionEntity)
 
+    @Query("SELECT COALESCE(MAX(version), 0) FROM item_versions WHERE knowledge_id = :knowledgeId")
+    suspend fun latestVersion(knowledgeId: String): Int
+
     @Query("SELECT * FROM item_versions WHERE knowledge_id = :knowledgeId ORDER BY version DESC")
     fun observeForItem(knowledgeId: String): Flow<List<ItemVersionEntity>>
 }
@@ -244,6 +263,9 @@ interface AttachmentDao {
 
     @Query("UPDATE attachments SET extraction_status = :status WHERE id = :id")
     suspend fun setExtractionStatus(id: String, status: com.pkos.core.data.model.ExtractionStatus)
+
+    @Query("UPDATE attachments SET extraction_status = :status, extracted_text = :text WHERE id = :id")
+    suspend fun setExtracted(id: String, status: com.pkos.core.data.model.ExtractionStatus, text: String?)
 }
 
 @Dao
@@ -254,9 +276,24 @@ interface ProcessingJobDao {
     @Query("SELECT * FROM processing_jobs WHERE knowledge_id = :knowledgeId ORDER BY created_at")
     suspend fun forItem(knowledgeId: String): List<com.pkos.core.data.db.entity.ProcessingJobEntity>
 
+    @Query("SELECT * FROM processing_jobs WHERE id = :id")
+    suspend fun get(id: String): com.pkos.core.data.db.entity.ProcessingJobEntity?
+
     @Query("SELECT DISTINCT knowledge_id FROM processing_jobs WHERE state IN ('QUEUED','RUNNING','RETRY_SCHEDULED')")
     suspend fun itemsWithPendingJobs(): List<String>
 
     @Query("UPDATE processing_jobs SET state = :state, attempts = :attempts, next_run_at = :nextRunAt, last_error_code = :error, updated_at = :at WHERE id = :id")
     suspend fun update(id: String, state: com.pkos.core.data.model.JobState, attempts: Int, nextRunAt: Long?, error: String?, at: Long)
+}
+
+@Dao
+interface AiRunDao {
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(run: com.pkos.core.data.db.entity.AiRunEntity)
+
+    @Query("SELECT * FROM ai_runs WHERE knowledge_id = :knowledgeId ORDER BY created_at DESC")
+    suspend fun forItem(knowledgeId: String): List<com.pkos.core.data.db.entity.AiRunEntity>
+
+    @Query("SELECT * FROM ai_runs WHERE knowledge_id = :knowledgeId ORDER BY created_at DESC LIMIT 1")
+    fun observeLatest(knowledgeId: String): Flow<com.pkos.core.data.db.entity.AiRunEntity?>
 }

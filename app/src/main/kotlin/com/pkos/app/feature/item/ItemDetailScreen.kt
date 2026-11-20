@@ -26,6 +26,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -83,6 +85,10 @@ class ItemDetailViewModel(private val container: AppContainer, private val id: S
     fun setPinned(on: Boolean) { viewModelScope.launch { container.knowledge.setPinned(id, on) } }
     fun saveNote(note: String) { viewModelScope.launch { container.knowledge.setNote(id, note) } }
     fun fileFor(a: com.pkos.core.data.db.entity.AttachmentEntity) = container.attachments.resolve(a.localPath)
+    fun accept() { viewModelScope.launch { container.knowledge.acceptOrganization(id) } }
+    fun setCategory(categoryId: String) { viewModelScope.launch { container.knowledge.setCategory(id, categoryId) } }
+    val categories: StateFlow<List<com.pkos.core.data.db.entity.CategoryEntity>> =
+        container.categories.all().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 
 @Composable
@@ -91,13 +97,16 @@ fun ItemDetailRoute(id: String, onBack: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(id) { vm.markOpened() }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val categories by vm.categories.collectAsStateWithLifecycle()
     ItemDetailScreen(
-        state, onBack,
+        state, onBack, categories = categories,
         actions = ItemActions(
             onPin = vm::setPinned,
             onSaveNote = vm::saveNote,
             onOpenUrl = { url -> runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri())) } },
             onOpenFile = { a -> openAttachment(context, vm.fileFor(a), a.mimeType) },
+            onAccept = vm::accept,
+            onChangeCategory = vm::setCategory,
         ),
     )
 }
@@ -107,6 +116,8 @@ data class ItemActions(
     val onSaveNote: (String) -> Unit = {},
     val onOpenUrl: (String) -> Unit = {},
     val onOpenFile: (com.pkos.core.data.db.entity.AttachmentEntity) -> Unit = {},
+    val onAccept: () -> Unit = {},
+    val onChangeCategory: (String) -> Unit = {},
 )
 
 /** Opens a local attachment via the app's FileProvider with a read-only grant; never exposes a file:// URI. */
@@ -119,7 +130,12 @@ private fun openAttachment(context: android.content.Context, file: java.io.File,
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit, actions: ItemActions = ItemActions()) {
+fun ItemDetailScreen(
+    state: ItemUiState,
+    onBack: () -> Unit,
+    actions: ItemActions = ItemActions(),
+    categories: List<com.pkos.core.data.db.entity.CategoryEntity> = emptyList(),
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -161,10 +177,12 @@ fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit, actions: ItemAction
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        item.reviewReason?.let {
+                        item.reviewReason?.let { raw ->
+                            val it = reviewReasonText(raw)
                             Text(stringResource(R.string.item_review_reason, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                    AiReviewCard(d, categories, actions)
                     if (item.duplicateOfId != null) {
                         Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().testTag("item_duplicate")) {
                             Row(Modifier.padding(Spacing.l), verticalAlignment = Alignment.CenterVertically) {
@@ -200,7 +218,11 @@ fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit, actions: ItemAction
                                         Spacer(Modifier.width(Spacing.m))
                                         Column(Modifier.weight(1f)) {
                                             Text(a.filename ?: a.sha256.take(12), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text(Formatters.bytes(context, a.sizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(
+                                                Formatters.bytes(context, a.sizeBytes) + " · " + stringResource(extractionLabel(a)),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
                                         }
                                     }
                                 }
@@ -214,6 +236,7 @@ fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit, actions: ItemAction
                             Body(stringResource(R.string.item_not_organized))
                         } else {
                             categoryName?.let { Labeled(stringResource(R.string.item_category), it) }
+                            item.purpose?.takeIf { it.isNotBlank() }?.let { Labeled(stringResource(R.string.item_purpose), purposeLabels(it)) }
                             d.topic?.let { Labeled(stringResource(R.string.item_topic), it.name) }
                             if (d.tags.isNotEmpty()) {
                                 Text(stringResource(R.string.item_tags), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -224,6 +247,11 @@ fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit, actions: ItemAction
                         }
                     }
                     item.rawText?.takeIf { it.isNotBlank() }?.let { Section(stringResource(R.string.item_section_original)) { SelectionContainer { Body(it) } } }
+                    d.attachments.mapNotNull { it.extractedText }.takeIf { it.isNotEmpty() }?.let { texts ->
+                        Section(stringResource(R.string.item_section_file_text)) {
+                            SelectionContainer { Body(texts.joinToString("\n\n").take(4_000)) }
+                        }
+                    }
                     if (item.sourceUrl != null || d.sources.isNotEmpty()) {
                         Section(stringResource(R.string.item_section_source)) {
                             item.sourceUrl?.let { url ->
@@ -266,4 +294,94 @@ private fun Labeled(label: String, value: String) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyLarge)
     }
+}
+
+private fun extractionLabel(a: com.pkos.core.data.db.entity.AttachmentEntity): Int = when (a.extractionStatus) {
+    com.pkos.core.data.model.ExtractionStatus.DONE -> if (a.extractedText.isNullOrBlank()) R.string.extract_done_empty else R.string.extract_done
+    com.pkos.core.data.model.ExtractionStatus.PENDING -> R.string.extract_pending
+    com.pkos.core.data.model.ExtractionStatus.FAILED -> R.string.extract_failed
+    com.pkos.core.data.model.ExtractionStatus.UNSUPPORTED -> R.string.extract_unsupported
+    com.pkos.core.data.model.ExtractionStatus.NOT_NEEDED -> R.string.extract_not_needed
+}
+
+@Composable
+private fun purposeLabels(csv: String): String = csv.split(',').map { p ->
+    when (p.trim()) {
+        "learn" -> stringResource(R.string.purpose_learn); "reference" -> stringResource(R.string.purpose_reference)
+        "build" -> stringResource(R.string.purpose_build); "decide" -> stringResource(R.string.purpose_decide)
+        "buy" -> stringResource(R.string.purpose_buy); "revisit" -> stringResource(R.string.purpose_revisit)
+        "inspiration" -> stringResource(R.string.purpose_inspiration); else -> p
+    }
+}.joinToString(", ")
+
+/** Shows who organised the item and how sure it was; lets the owner accept or pick another category (spec 4.5). */
+@Composable
+private fun AiReviewCard(d: KnowledgeItemDetail, categories: List<com.pkos.core.data.db.entity.CategoryEntity>, actions: ItemActions) {
+    val item = d.item
+    val aiCategory = runCatching { org.json.JSONObject(item.fieldOrigins).optString("category") == "AI" }.getOrDefault(false)
+    val review = item.processingState == com.pkos.core.data.model.ProcessingState.NEEDS_REVIEW
+    if (!review && !aiCategory) return
+    var choose by remember { mutableStateOf(false) }
+    val pct = ((item.confidence ?: 0.0) * 100).toInt()
+    val onPhone = d.lastAiRun?.provider == com.pkos.core.data.processing.LocalClassifier.PROVIDER
+    Surface(
+        color = if (review) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().testTag("ai_review"),
+    ) {
+        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.AutoAwesome, null)
+                Spacer(Modifier.width(Spacing.m))
+                Text(
+                    stringResource(if (review) R.string.ai_review_title else R.string.ai_organized_title),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+            Text(
+                stringResource(R.string.ai_confidence_line, pct, stringResource(if (onPhone) R.string.ai_by_phone else R.string.ai_by_cloud)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                if (!review) {
+                    FilledTonalButton(onClick = actions.onAccept, modifier = Modifier.testTag("ai_accept")) { Text(stringResource(R.string.ai_accept)) }
+                }
+                OutlinedButton(onClick = { choose = true }, modifier = Modifier.testTag("ai_change_category")) { Text(stringResource(R.string.ai_change_category)) }
+            }
+        }
+    }
+    if (choose) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { choose = false },
+            title = { Text(stringResource(R.string.ai_change_category)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    categories.forEach { c ->
+                        val label = systemCategoryLabel(c.id)?.let { stringResource(it) } ?: c.name
+                        Surface(
+                            onClick = { choose = false; actions.onChangeCategory(c.id) },
+                            color = if (c.id == item.categoryId) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth().testTag("category_option_${c.id}"),
+                        ) { Text(label, Modifier.padding(Spacing.m), style = MaterialTheme.typography.bodyLarge) }
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { choose = false }) { Text(stringResource(R.string.capture_dialog_cancel)) } },
+        )
+    }
+}
+
+@Composable
+private fun reviewReasonText(raw: String): String = when (raw) {
+    com.pkos.core.data.processing.ReviewReason.NO_TOPIC -> stringResource(R.string.reason_no_topic)
+    com.pkos.core.data.processing.ReviewReason.AMBIGUOUS -> stringResource(R.string.reason_ambiguous)
+    com.pkos.core.data.processing.ReviewReason.UNKNOWN_CATEGORY -> stringResource(R.string.reason_unknown_category)
+    com.pkos.core.data.processing.ReviewReason.LOW_CONFIDENCE -> stringResource(R.string.reason_low_confidence)
+    com.pkos.core.data.processing.ReviewReason.CLOUD_INVALID -> stringResource(R.string.reason_cloud_invalid)
+    com.pkos.core.data.processing.ReviewReason.CLOUD_QUOTA -> stringResource(R.string.reason_cloud_quota)
+    com.pkos.core.data.processing.ReviewReason.CLOUD_AUTH -> stringResource(R.string.reason_cloud_auth)
+    com.pkos.core.data.processing.ReviewReason.CLOUD_UNAVAILABLE -> stringResource(R.string.reason_cloud_unavailable)
+    else -> raw
 }

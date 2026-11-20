@@ -11,4 +11,5 @@ import kotlinx.serialization.Serializable
 @Serializable data object AskAiRoute
 @Serializable data object IntegrationsRoute
 @Serializable data object BackupSyncRoute
+@Serializable data object AiSettingsRoute
 @Serializable data class ItemDetailRoute(val id: String)

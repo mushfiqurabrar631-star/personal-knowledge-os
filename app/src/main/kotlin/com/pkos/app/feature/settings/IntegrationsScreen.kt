@@ -81,23 +81,27 @@ private fun ConnectionPill(state: ConnectionState) = when (state) {
 
 /** Honest connection status for Notion, Drive and AI (spec 2.7 "Integrations"). */
 @Composable
-fun IntegrationsScreen(status: IntegrationStatus, onBack: () -> Unit) {
+fun IntegrationsScreen(status: IntegrationStatus, onBack: () -> Unit, openAiSettings: () -> Unit = {}) {
     DetailScaffold(R.string.integrations_title, onBack) {
         IntegrationCard(Icons.Outlined.Description, R.string.integration_notion, R.string.integration_notion_body, status.notion, "M4", "integration_notion")
         IntegrationCard(Icons.Outlined.AddToDrive, R.string.integration_drive, R.string.integration_drive_body, status.drive, "M5", "integration_drive")
-        IntegrationCard(Icons.Outlined.Psychology, R.string.integration_ai, R.string.integration_ai_body, status.aiProvider, "M3", "integration_ai")
+        IntegrationCard(Icons.Outlined.Psychology, R.string.integration_ai, R.string.integration_ai_body, status.aiProvider, null, "integration_ai", openAiSettings)
     }
 }
 
 @Composable
-private fun IntegrationCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Int, body: Int, state: ConnectionState, milestone: String, tag: String) {
+private fun IntegrationCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector, title: Int, body: Int, state: ConnectionState, milestone: String?, tag: String,
+    onSetup: (() -> Unit)? = null,
+) {
     NoticeCard(
         icon, stringResource(title), stringResource(body),
         modifier = Modifier.testTag(tag),
         action = {
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically) {
                 ConnectionPill(state)
-                StagedPill(milestone)
+                milestone?.let { StagedPill(it) }
+                onSetup?.let { androidx.compose.material3.TextButton(onClick = it, modifier = Modifier.testTag("${tag}_setup")) { Text(stringResource(R.string.integration_setup)) } }
             }
         },
     )

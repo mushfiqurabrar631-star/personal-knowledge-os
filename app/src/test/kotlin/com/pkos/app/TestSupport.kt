@@ -32,12 +32,16 @@ class InMemorySettings(initial: AppSettings = AppSettings()) : SettingsRepositor
     override suspend fun setCloudAiEnabled(enabled: Boolean) { state.value = state.value.copy(cloudAiEnabled = enabled) }
     override suspend fun setLocalOnlyByDefault(enabled: Boolean) { state.value = state.value.copy(localOnlyByDefault = enabled) }
     override suspend fun setFloatingCaptureEnabled(enabled: Boolean) { state.value = state.value.copy(floatingCaptureEnabled = enabled) }
+    override suspend fun setAiModel(model: String) { state.value = state.value.copy(aiModel = model) }
 }
 
 /** Real repositories over a real (in-memory) Room database. */
 fun testContainer(settings: InMemorySettings = InMemorySettings(AppSettings(onboardingCompleted = true))): AppContainer {
     val context = ApplicationProvider.getApplicationContext<Context>()
-    val container = AppContainer(context, PkosDatabase.inMemory(context), settings, freeBytes = { Long.MAX_VALUE })
+    val container = AppContainer(
+        context, PkosDatabase.inMemory(context), settings, freeBytes = { Long.MAX_VALUE },
+        secrets = com.pkos.app.processing.InMemorySecretStore(), ocr = null,
+    ).apply { onCaptured = {} } // UI tests check capture; processing has its own tests
     runBlocking { container.categories.ensureStarterTaxonomy() }
     return container
 }

@@ -34,6 +34,9 @@ class ShareCaptureTest {
 
     @Before fun storage() {
         ShadowStatFs.registerStats(ctx.filesDir, 1_000_000, 1_000_000, 1_000_000)
+        androidx.work.testing.WorkManagerTestInitHelper.initializeTestWorkManager(
+            ctx, androidx.work.Configuration.Builder().setExecutor(androidx.work.testing.SynchronousExecutor()).build(),
+        )
     }
 
     private fun tempFile(name: String, bytes: ByteArray) = File(ctx.cacheDir, name).apply { writeBytes(bytes) }

@@ -4,7 +4,9 @@
 
     <!-- Share capture needs no permission. The overlay + notification permissions are used only by the optional
          floating button, requested when the owner turns it on. No Accessibility Service, no broad storage,
-         no INTERNET in M2 (capture is fully offline). -->
+         capture itself never needs the network. -->
+    <!-- Only used when the owner turns on cloud AI and saves their own key (Settings → AI). -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />

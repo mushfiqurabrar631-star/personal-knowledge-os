@@ -32,6 +32,7 @@ data class KnowledgeItemDetail(
     val sources: List<CaptureSourceEntity>,
     val versions: List<ItemVersionEntity>,
     val attachments: List<com.pkos.core.data.db.entity.AttachmentEntity> = emptyList(),
+    val lastAiRun: com.pkos.core.data.db.entity.AiRunEntity? = null,
 )
 
 class KnowledgeRepository(private val db: PkosDatabase, private val clock: () -> Long = System::currentTimeMillis) {
@@ -63,9 +64,9 @@ class KnowledgeRepository(private val db: PkosDatabase, private val clock: () ->
             item.topicId?.let { db.topicDao().observe(it) } ?: flowOf(null),
             db.tagDao().observeForItem(id),
             db.captureSourceDao().observeForItem(id),
-            combine(db.itemVersionDao().observeForItem(id), db.attachmentDao().observeForItem(id)) { v, a -> v to a },
-        ) { category, topic, tags, sources, (versions, attachments) ->
-            KnowledgeItemDetail(item, category, topic, tags, sources, versions, attachments)
+            combine(db.itemVersionDao().observeForItem(id), db.attachmentDao().observeForItem(id), db.aiRunDao().observeLatest(id)) { v, a, r -> Triple(v, a, r) },
+        ) { category, topic, tags, sources, (versions, attachments, run) ->
+            KnowledgeItemDetail(item, category, topic, tags, sources, versions, attachments, run)
         }
     }
 
@@ -74,6 +75,27 @@ class KnowledgeRepository(private val db: PkosDatabase, private val clock: () ->
     suspend fun setNote(id: String, note: String?) = dao.setNote(id, note?.trim()?.takeIf { it.isNotEmpty() }, clock())
 
     suspend fun markOpened(id: String) = dao.markOpened(id, clock())
+
+    /** Owner confirms the AI organisation: the category becomes theirs (origin USER) and the review flag clears. */
+    suspend fun acceptOrganization(id: String) = setCategoryInternal(id, null)
+
+    /** Owner picks a category. Marked USER so no later AI run changes it (spec 4.5). */
+    suspend fun setCategory(id: String, categoryId: String) = setCategoryInternal(id, categoryId)
+
+    private suspend fun setCategoryInternal(id: String, categoryId: String?) {
+        val item = dao.get(id) ?: return
+        val origins = runCatching { org.json.JSONObject(item.fieldOrigins) }.getOrElse { org.json.JSONObject() }.put("category", "USER")
+        dao.update(
+            item.copy(
+                categoryId = categoryId ?: item.categoryId,
+                processingState = com.pkos.core.data.model.ProcessingState.ORGANIZED,
+                reviewReason = null,
+                userEdited = true,
+                fieldOrigins = origins.toString(),
+                updatedAt = clock(),
+            ),
+        )
+    }
 
     companion object {
         /** Escapes LIKE wildcards so user text is matched literally. */
@@ -84,6 +106,7 @@ class KnowledgeRepository(private val db: PkosDatabase, private val clock: () ->
 
 class CategoryRepository(private val db: PkosDatabase, private val clock: () -> Long = System::currentTimeMillis) {
     fun categories(): Flow<List<CategoryWithCounts>> = db.categoryDao().observeWithCounts()
+    fun all(): Flow<List<CategoryEntity>> = db.categoryDao().observeAll()
     fun recentlyOpenedTopics(limit: Int = 4): Flow<List<TopicEntity>> = db.topicDao().observeRecentlyOpened(limit)
 
     /**
@@ -101,6 +124,10 @@ class CategoryRepository(private val db: PkosDatabase, private val clock: () -> 
 }
 
 object StarterTaxonomy {
+    const val UNSORTED = "sys-unsorted"
+    /** Never assigned automatically: health is only what the owner files there (spec 4.3). */
+    const val HEALTH = "sys-health"
+
     data class Starter(val id: String, val name: String, val icon: String)
 
     val categories = listOf(

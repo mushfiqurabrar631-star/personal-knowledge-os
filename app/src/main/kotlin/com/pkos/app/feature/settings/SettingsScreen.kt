@@ -105,6 +105,7 @@ data class SettingsActions(
     val openIntegrations: () -> Unit,
     val openBackupSync: () -> Unit,
     val onReplayOnboarding: () -> Unit,
+    val openAiSettings: () -> Unit = {},
 )
 
 @Composable
@@ -249,6 +250,7 @@ fun SettingsScreen(
             item {
                 Group {
                     SwitchRow(Icons.Outlined.Psychology, stringResource(R.string.settings_cloud_ai), stringResource(R.string.settings_cloud_ai_sub), settings.cloudAiEnabled, onCloudAi, "cloud_ai")
+                    LinkRow(Icons.Outlined.Key, stringResource(R.string.ai_settings_title), stringResource(R.string.ai_settings_sub), actions.openAiSettings)
                     SwitchRow(Icons.Outlined.PhoneAndroid, stringResource(R.string.settings_local_only), stringResource(R.string.settings_local_only_sub), settings.localOnlyByDefault, onLocalOnly, "local_only")
                 }
             }
