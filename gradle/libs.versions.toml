@@ -1,0 +1,15 @@
+# Versions verified locally on 2026-11-20 (bundled with Gradle 8.14.3).
+# Bump to current stable once Maven repositories are reachable (see CHECKLIST.md).
+[versions]
+kotlin = "2.0.21"
+coroutines = "1.6.4"
+serialization = "1.6.2"
+junit = "4.13.2"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
