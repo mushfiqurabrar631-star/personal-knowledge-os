@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PKOS</string>
+    <string name="app_full_name">Personal Knowledge OS</string>
+
+    <!-- Common -->
+    <string name="action_back">ফিরে যান</string>
+    <string name="action_close">বন্ধ করুন</string>
+    <string name="action_retry">আবার চেষ্টা করুন</string>
+    <string name="action_dismiss">সরিয়ে দিন</string>
+    <string name="action_open">খুলুন</string>
+    <string name="action_see_all">সব দেখুন</string>
+    <string name="loading">লোড হচ্ছে…</string>
+    <string name="staged_label">শীঘ্রই · %1$s</string>
+    <string name="error_generic_title">কিছু একটা ঠিকমতো হয়নি</string>
+    <string name="error_generic_body">আপনার তথ্য ফোনে নিরাপদে আছে। একটু পরে আবার চেষ্টা করুন।</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">হোম</string>
+    <string name="nav_inbox">ইনবক্স</string>
+    <string name="nav_capture">সেভ করুন</string>
+    <string name="nav_search">খুঁজুন</string>
+    <string name="nav_settings">সেটিংস</string>
+    <string name="nav_topics">টপিক</string>
+    <string name="nav_ask_ai">AI-কে জিজ্ঞাসা</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">এড়িয়ে যান</string>
+    <string name="onboarding_next">পরবর্তী</string>
+    <string name="onboarding_start">শুরু করুন</string>
+    <string name="onboarding_page_indicator">ধাপ %1$d, মোট %2$d</string>
+    <string name="onboarding_1_title">আপনার সব জ্ঞান, এক জায়গায়</string>
+    <string name="onboarding_1_body">ফেসবুক পোস্ট, ইউটিউব ভিডিও, ওয়েবসাইট, স্ক্রিনশট, মেসেজ বা ফাইল—যা দেখছেন তা সেভ করুন। PKOS নিজেই বিষয় অনুযায়ী সাজিয়ে রাখবে, পরে সহজে খুঁজে পাবেন।</string>
+    <string name="onboarding_2_title">আগে ফোনে, তারপর ক্লাউডে</string>
+    <string name="onboarding_2_body">প্রতিটি তথ্য আগে আপনার ফোনেই সেভ হয়—ইন্টারনেট না থাকলেও। ব্যাকআপ আর Notion সিঙ্ক আপনি চালু করলে তবেই হবে, আর কী কোথায় আছে তা সবসময় দেখতে পাবেন।</string>
+    <string name="onboarding_2_point_1">ইন্টারনেট ছাড়াই সেভ ও খোঁজা</string>
+    <string name="onboarding_2_point_2">ক্লাউড AI ডিফল্টভাবে বন্ধ</string>
+    <string name="onboarding_2_point_3">কোনো পেইড সার্ভিস অজান্তে ব্যবহার হয় না</string>
+    <string name="onboarding_3_title">অনুমতি শুধু দরকার হলে</string>
+    <string name="onboarding_3_body">Share মেনু দিয়ে সেভ করতে কোনো বিশেষ অনুমতি লাগে না। ভাসমান বোতাম চালু করতে চাইলে তখনই কারণ বুঝিয়ে অনুমতি চাওয়া হবে। PKOS অন্য অ্যাপের লেখা নিজে থেকে পড়ে না।</string>
+
+    <!-- Home -->
+    <string name="home_search_hint">আপনি কী খুঁজছেন?</string>
+    <string name="home_capture_title">নতুন কিছু সেভ করুন</string>
+    <string name="home_capture_body">লিংক, লেখা, স্ক্রিনশট, ফাইল বা দ্রুত নোট</string>
+    <string name="home_capture_button">সেভ করুন</string>
+    <string name="home_capture_share_hint">যেকোনো অ্যাপের Share মেনু থেকে সরাসরি PKOS-এ পাঠানো যাবে</string>
+    <string name="home_status_title">এক নজরে</string>
+    <string name="home_stat_saved">সেভ হয়েছে</string>
+    <string name="home_stat_needs_review">রিভিউ দরকার</string>
+    <string name="home_stat_pending_sync">সিঙ্কের অপেক্ষায়</string>
+    <string name="home_stat_last_backup">শেষ ব্যাকআপ</string>
+    <string name="home_stat_backup_never">এখনো হয়নি</string>
+    <string name="home_continue_title">যেখানে থেমেছিলেন</string>
+    <string name="home_recent_topics">সম্প্রতি দেখা টপিক</string>
+    <string name="home_empty_title">এখনো কিছু সেভ হয়নি</string>
+    <string name="home_empty_body">প্রথম তথ্যটি সেভ করলে এখানে দেখাবে। সবকিছু আগে আপনার ফোনেই থাকবে।</string>
+    <string name="home_suggested_title">প্রস্তাবিত কালেকশন</string>
+    <string name="home_explore_title">ঘুরে দেখুন</string>
+    <string name="home_explore_topics_body">বিষয় অনুযায়ী সাজানো</string>
+    <string name="home_explore_ask_body">নিজের সেভ করা তথ্য থেকে উত্তর</string>
+    <string name="home_action_banner">%1$d টি আইটেমে আপনার পদক্ষেপ দরকার</string>
+    <string name="home_sync_status_cd">সিঙ্ক ও ব্যাকআপের অবস্থা: %1$s</string>
+    <string name="home_settings_cd">সেটিংস খুলুন</string>
+    <string name="health_local_only">শুধু ফোনে আছে · ব্যাকআপ চালু নেই</string>
+    <string name="health_syncing">সিঙ্ক চলছে</string>
+    <string name="health_action_required">আপনার পদক্ষেপ দরকার</string>
+    <string name="health_up_to_date">সব আপ-টু-ডেট</string>
+
+    <!-- Status labels (plain language, spec UX priority) -->
+    <string name="status_saved_on_device">ফোনে সেভ হয়েছে</string>
+    <string name="status_organizing">সাজানো হচ্ছে</string>
+    <string name="status_needs_review">রিভিউ দরকার</string>
+    <string name="status_backing_up">ব্যাকআপ হচ্ছে</string>
+    <string name="status_backed_up">ব্যাকআপ হয়েছে</string>
+    <string name="status_sending_to_notion">Notion-এ পাঠানো হচ্ছে</string>
+    <string name="status_in_notion">Notion-এ আছে</string>
+    <string name="status_synced">সিঙ্ক হয়েছে</string>
+    <string name="status_retrying">আবার চেষ্টা হবে</string>
+    <string name="status_action_required">পদক্ষেপ দরকার</string>
+
+    <!-- Capture sheet -->
+    <string name="capture_title">কী সেভ করবেন?</string>
+    <string name="capture_subtitle">সবকিছু আগে ফোনে সেভ হবে, পরে নিজে থেকেই সাজানো হবে।</string>
+    <string name="capture_link">লিংক</string>
+    <string name="capture_text">লেখা</string>
+    <string name="capture_screenshot">স্ক্রিনশট / ছবি</string>
+    <string name="capture_file">ফাইল</string>
+    <string name="capture_quick_note">দ্রুত নোট</string>
+    <string name="capture_paste">পেস্ট করুন</string>
+    <string name="capture_staged_note">সেভ করার সুবিধা পরের আপডেটে (M2) চালু হবে। এখন বোতামগুলো বন্ধ রাখা হয়েছে যাতে কিছু সেভ হয়েছে বলে ভুল না হয়।</string>
+    <string name="capture_share_tip">টিপ: ফেসবুক, ইউটিউব বা Chrome-এর Share মেনুতে PKOS বেছে নিলেই হবে।</string>
+
+    <!-- Inbox -->
+    <string name="inbox_title">ইনবক্স</string>
+    <string name="inbox_subtitle">নতুন ও অসম্পূর্ণ তথ্য</string>
+    <string name="inbox_filter_all">সব</string>
+    <string name="inbox_filter_processing">সাজানো হচ্ছে</string>
+    <string name="inbox_filter_needs_review">রিভিউ দরকার</string>
+    <string name="inbox_filter_failed">সমস্যা</string>
+    <string name="inbox_filter_sync_pending">সিঙ্ক বাকি</string>
+    <string name="inbox_empty_all_title">ইনবক্স খালি</string>
+    <string name="inbox_empty_all_body">নতুন সেভ করা তথ্য প্রথমে এখানে আসে। সাজানো শেষ হলে নিজে থেকেই টপিকে চলে যায়।</string>
+    <string name="inbox_empty_filter_title">এখানে কিছু নেই</string>
+    <string name="inbox_empty_processing_body">এই মুহূর্তে কোনো তথ্য সাজানো হচ্ছে না।</string>
+    <string name="inbox_empty_review_body">রিভিউ করার মতো কিছু নেই।</string>
+    <string name="inbox_empty_failed_body">কোনো সমস্যা নেই। কোনো কাজ ব্যর্থ হলে কারণসহ এখানে দেখাবে।</string>
+    <string name="inbox_empty_sync_body">সিঙ্কের অপেক্ষায় কিছু নেই।</string>
+
+    <!-- Search -->
+    <string name="search_title">খুঁজুন</string>
+    <string name="search_field_hint">শিরোনাম, লেখা, লিংক বা নোটে খুঁজুন</string>
+    <string name="search_clear">মুছে ফেলুন</string>
+    <string name="search_mode_keyword">শব্দ দিয়ে</string>
+    <string name="search_mode_semantic">অর্থ দিয়ে</string>
+    <string name="search_start_title">যা মনে আছে তাই লিখুন</string>
+    <string name="search_start_body">ফোনে সেভ থাকা সব তথ্যে খোঁজে—ইন্টারনেট ছাড়াও কাজ করে।</string>
+    <string name="search_no_results_title">“%1$s” পাওয়া যায়নি</string>
+    <string name="search_no_results_body">অন্য কোনো শব্দ বা বানানে চেষ্টা করুন।</string>
+    <string name="search_results_count">%1$d টি ফলাফল</string>
+    <string name="search_semantic_note">অর্থভিত্তিক খোঁজ পরের ধাপে (M6) আসবে।</string>
+
+    <!-- Topics -->
+    <string name="topics_title">টপিক</string>
+    <string name="topics_subtitle">ক্যাটাগরি → টপিক → সাবটপিক</string>
+    <string name="topics_counts">%1$d আইটেম · %2$d টপিক</string>
+    <string name="topics_starter_note">এগুলো শুরুর ক্যাটাগরি—পরে নাম বদলানো, নতুন যোগ এবং আপনার Notion ক্যাটাগরি যুক্ত করা যাবে।</string>
+    <string name="cat_education">শিক্ষা ও শেখা</string>
+    <string name="cat_technology">প্রযুক্তি ও সফটওয়্যার</string>
+    <string name="cat_programming">প্রোগ্রামিং ও ডাটা</string>
+    <string name="cat_projects">প্রজেক্ট ও কাজ</string>
+    <string name="cat_business">ব্যবসা ও অর্থ</string>
+    <string name="cat_ideas">আইডিয়া ও অনুপ্রেরণা</string>
+    <string name="cat_health">স্বাস্থ্য ও ব্যক্তিগত রেফারেন্স</string>
+    <string name="cat_websites">ওয়েবসাইট ও টুলস</string>
+    <string name="cat_personal">ব্যক্তিগত নোট</string>
+    <string name="cat_unsorted">অসাজানো / রিভিউ দরকার</string>
+
+    <!-- Ask AI -->
+    <string name="ask_title">AI-কে জিজ্ঞাসা</string>
+    <string name="ask_intro">আপনার নিজের সেভ করা তথ্য থেকেই উত্তর দেবে, আর প্রতিটি উত্তরের সাথে কোন আইটেম থেকে এসেছে তা দেখাবে। উৎস না থাকলে সেটাও বলবে।</string>
+    <string name="ask_not_ready_title">AI এখনো চালু নয়</string>
+    <string name="ask_not_ready_body">এর জন্য একটি AI প্রোভাইডার সংযোগ লাগবে। ক্লাউড AI ডিফল্টভাবে বন্ধ থাকে—আপনি নিজে চালু না করলে কোনো তথ্য বাইরে যায় না।</string>
+    <string name="ask_input_hint">যেমন: মার্কেটিং নিয়ে কী কী সেভ করেছি?</string>
+    <string name="ask_open_integrations">সংযোগ দেখুন</string>
+
+    <!-- Item detail -->
+    <string name="item_not_found_title">আইটেমটি পাওয়া যায়নি</string>
+    <string name="item_not_found_body">এটি হয়তো মুছে ফেলা হয়েছে।</string>
+    <string name="item_section_summary">সারসংক্ষেপ</string>
+    <string name="item_section_original">মূল লেখা</string>
+    <string name="item_section_organized">যেভাবে সাজানো</string>
+    <string name="item_section_source">উৎস</string>
+    <string name="item_section_history">ইতিহাস</string>
+    <string name="item_category">ক্যাটাগরি</string>
+    <string name="item_topic">টপিক</string>
+    <string name="item_tags">ট্যাগ</string>
+    <string name="item_not_organized">এখনো সাজানো হয়নি</string>
+    <string name="item_captured_at">সেভ হয়েছে %1$s</string>
+    <string name="item_version">সংস্করণ %1$d · %2$s</string>
+    <string name="item_no_history">এখনো কোনো পরিবর্তন হয়নি</string>
+    <string name="item_review_reason">কেন রিভিউ: %1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_title">সেটিংস</string>
+    <string name="settings_section_appearance">চেহারা</string>
+    <string name="settings_theme">থিম</string>
+    <string name="settings_theme_system">ফোনের মতো</string>
+    <string name="settings_theme_light">লাইট</string>
+    <string name="settings_theme_dark">ডার্ক</string>
+    <string name="settings_language">ভাষা</string>
+    <string name="settings_language_system">ফোনের ভাষা</string>
+    <string name="settings_language_bn">বাংলা</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_section_connections">সংযোগ ও ব্যাকআপ</string>
+    <string name="settings_integrations">ইন্টিগ্রেশন</string>
+    <string name="settings_integrations_sub">Notion, Google Drive, AI প্রোভাইডার</string>
+    <string name="settings_backup_sync">ব্যাকআপ ও সিঙ্ক</string>
+    <string name="settings_backup_sync_sub">শেষ ব্যাকআপ, অপেক্ষমাণ কাজ, রিস্টোর</string>
+    <string name="settings_section_privacy">গোপনীয়তা</string>
+    <string name="settings_cloud_ai">ক্লাউড AI</string>
+    <string name="settings_cloud_ai_sub">বন্ধ থাকলে কোনো তথ্য AI প্রোভাইডারে পাঠানো হয় না</string>
+    <string name="settings_local_only">নতুন তথ্য শুধু ফোনে রাখুন</string>
+    <string name="settings_local_only_sub">চালু থাকলে নতুন capture ক্লাউড AI বা Notion-এ যাবে না</string>
+    <string name="settings_section_permissions">অনুমতি</string>
+    <string name="settings_perm_overlay">ভাসমান বোতাম (অন্য অ্যাপের উপরে দেখানো)</string>
+    <string name="settings_perm_notifications">নোটিফিকেশন</string>
+    <string name="settings_perm_granted">দেওয়া আছে</string>
+    <string name="settings_perm_not_granted">দেওয়া নেই · দরকার হলে চাওয়া হবে</string>
+    <string name="settings_perm_not_needed">এই Android ভার্সনে আলাদা অনুমতি লাগে না</string>
+    <string name="settings_section_data">ডাটা</string>
+    <string name="settings_storage">ফোনে ব্যবহৃত জায়গা</string>
+    <string name="settings_storage_value">ডাটাবেস %1$s · ফাইল %2$s</string>
+    <string name="settings_export">আমার ডাটা এক্সপোর্ট</string>
+    <string name="settings_recovery_key">রিকভারি কী</string>
+    <string name="settings_section_about">অ্যাপ সম্পর্কে</string>
+    <string name="settings_version">ভার্সন</string>
+    <string name="settings_replay_onboarding">পরিচিতি আবার দেখুন</string>
+    <string name="settings_licenses">ফন্ট: Hind Siliguri (SIL Open Font License 1.1)</string>
+
+    <!-- Integrations -->
+    <string name="integrations_title">ইন্টিগ্রেশন</string>
+    <string name="integration_not_connected">সংযুক্ত নয়</string>
+    <string name="integration_notion">Notion</string>
+    <string name="integration_notion_body">লক্ষ্য: My knowledge Hub → Master Database। বিদ্যমান ফিল্ড ও পুরোনো এন্ট্রি অক্ষত থাকবে; শুধু Capture ID যোগ করা হয়েছে।</string>
+    <string name="integration_drive">Google Drive ব্যাকআপ</string>
+    <string name="integration_drive_body">ফোল্ডার: “Personal Knowledge OS Backups”। আপলোডের আগে এনক্রিপ্ট করা হবে; রিকভারি কী আপনার কাছে থাকবে।</string>
+    <string name="integration_ai">AI প্রোভাইডার</string>
+    <string name="integration_ai_body">লোকাল নিয়ম সবসময় চলবে। ক্লাউড AI ঐচ্ছিক, ডিফল্টভাবে বন্ধ, আর ফ্রি লিমিট শেষ হলে কাজ অপেক্ষায় থাকবে—কোনো চার্জ হবে না।</string>
+
+    <!-- Backup & Sync -->
+    <string name="backup_title">ব্যাকআপ ও সিঙ্ক</string>
+    <string name="backup_last">শেষ যাচাইকৃত ব্যাকআপ</string>
+    <string name="backup_size">ব্যাকআপের আকার</string>
+    <string name="backup_none">এখনো কোনো ব্যাকআপ হয়নি</string>
+    <string name="backup_not_configured">Google Drive সংযুক্ত নয়, তাই আপনার তথ্য এখন শুধু এই ফোনে আছে।</string>
+    <string name="backup_queue_title">অপেক্ষমাণ কাজ</string>
+    <string name="backup_queue_backup">ব্যাকআপের অপেক্ষায়</string>
+    <string name="backup_queue_notion">Notion-এর অপেক্ষায়</string>
+    <string name="backup_queue_action">পদক্ষেপ দরকার</string>
+    <string name="backup_now">এখনই ব্যাকআপ</string>
+    <string name="backup_verify">ব্যাকআপ যাচাই</string>
+    <string name="backup_restore">রিস্টোর</string>
+</resources>
