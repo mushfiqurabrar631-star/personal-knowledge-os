@@ -9,7 +9,7 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 | R-03 | Local-first | ⬜ | M2 (Room) |
 | R-04 | Hybrid AI | ⬜ | M3 |
 | R-05 | Auto organization | ⬜ | M3 |
-| R-06 | Notion integration | 🟡 | Schema inspected, Capture ID added & verified, `:core:notion` mapping + idempotent sync, 31 unit tests pass. Pending: OkHttp transport, WorkManager job, Room `notion_mappings`, token setup UI, live test with real token |
+| R-06 | Notion integration | 🟡 | Schema inspected, Capture ID added & verified, `:core:notion` mapping + idempotent, crash-safe sync (body marker, write-ahead journal, adoption review), 50 tests pass (docs/test-report.md). Pending: OkHttp transport, Room `notion_mappings` + `SyncJournal`, WorkManager job (unique per Capture ID), conflict/adoption review UI, token setup UI, file upload, live test with real token |
 | R-07 | Cloud backup | ⬜ | M5 |
 | R-08 | Offline support | ⬜ | M2/M3 |
 | R-09 | No silent paid usage | ⬜ | M3 |
@@ -27,5 +27,5 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
   current stable when the repositories are reachable.
 
 ## Last verified checkpoint
-2026-11-20 — `scripts/verify-core-notion.sh` → `OK (31 tests)`; mutation check: disabling the
-option guard fails 4 tests, removing the Capture ID lookup fails 3 tests.
+2026-11-20 (review fixes) — `scripts/verify-core-notion.sh` → 50/50 pass. Mutation check: 6 protections broken one at a
+time, each caught by 1–5 tests. Notion read-only check: schema unchanged, 15 rows, 0 with Capture ID.

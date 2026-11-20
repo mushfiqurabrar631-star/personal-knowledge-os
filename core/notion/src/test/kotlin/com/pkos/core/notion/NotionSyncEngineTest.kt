@@ -1,18 +1,15 @@
 package com.pkos.core.notion
 
-import com.pkos.core.notion.api.NotionClient
-import com.pkos.core.notion.api.NotionErrorKind
-import com.pkos.core.notion.api.RateLimiter
-import com.pkos.core.notion.model.ContentType
 import com.pkos.core.notion.model.ItemPriority
 import com.pkos.core.notion.model.ItemStatus
 import com.pkos.core.notion.model.KnowledgeBody
 import com.pkos.core.notion.model.PrivacyScope
 import com.pkos.core.notion.model.SourcePlatform
-import com.pkos.core.notion.model.SyncItem
 import com.pkos.core.notion.sync.ActionReason
-import com.pkos.core.notion.sync.NotionSyncEngine
-import com.pkos.core.notion.sync.RetryPolicy
+import com.pkos.core.notion.sync.BodyState
+import com.pkos.core.notion.sync.ConflictKind
+import com.pkos.core.notion.sync.ConflictResolution
+import com.pkos.core.notion.sync.RetryReason
 import com.pkos.core.notion.sync.SyncOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
@@ -22,57 +19,21 @@ import kotlinx.serialization.json.putJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
-import java.time.Instant
 import java.util.UUID
-import kotlin.random.Random
 
+/** Core behaviour of the sync engine (create, update, options, errors, guards). */
 class NotionSyncEngineTest {
-    private lateinit var fake: FakeNotion
-    private lateinit var engine: NotionSyncEngine
-    private var token: String? = "test-token"
-    private lateinit var legacyIds: List<String>
-
-    @Before
-    fun setUp() {
-        fake = FakeNotion()
-        legacyIds = (1..15).map { fake.seedLegacyPage("Old entry $it") }
-        val client = NotionClient(fake, { token }, RateLimiter.none())
-        engine = NotionSyncEngine(client, TEST_DS, retryPolicy = RetryPolicy(random = Random(1)))
-    }
-
-    private fun item(
-        id: String = UUID.randomUUID().toString(),
-        body: KnowledgeBody = KnowledgeBody(summary = "AI দিয়ে মার্কেটিং শেখার ভিডিও", keyPoints = listOf("Prompt", "Ads")),
-    ) = SyncItem(
-        captureId = id,
-        title = "Ai দিয়ে marketing",
-        sourceUrl = "https://youtu.be/ynZp8-FjYUo?si=wFYeGdw0Jweb12Gd",
-        capturedAt = Instant.parse("2026-11-20T04:30:00Z"),
-        contentType = ContentType.VIDEO,
-        status = ItemStatus.TO_LEARN,
-        priority = ItemPriority.HIGH,
-        mainCategory = "AI",
-        tags = listOf("Business"),
-        platform = SourcePlatform.YOUTUBE,
-        body = body,
-    )
-
-    private fun assertLegacyUntouched() {
-        val touched = fake.writes().filter { c -> legacyIds.any { c.path.contains(it) } }
-        assertTrue("Legacy pages must never be written: $touched", touched.isEmpty())
-        assertTrue("No new options may be created: ${fake.optionViolations}", fake.optionViolations.isEmpty())
-    }
+    private val env = TestEnv()
+    private val fake get() = env.fake
+    private val engine get() = env.engine
 
     @Test
     fun createsVerifiedPageWithBodyWhenNotLinked() = runBlocking {
-        val it = item()
-        val out = engine.sync(it, existing = null)
-        assertTrue(out is SyncOutcome.Synced)
-        out as SyncOutcome.Synced
+        val it = env.item()
+        val out = engine.sync(it, existing = null) as SyncOutcome.Synced
         assertTrue(out.created)
-        assertTrue(out.link.bodyWritten)
+        assertEquals(BodyState.WRITTEN, out.bodyState)
         assertEquals(16, fake.pages.size)
         val page = fake.pages.getValue(out.link.pageId)["properties"]!!.jsonObject
         assertTrue(page["Capture ID"].toString().contains(it.captureId))
@@ -80,52 +41,38 @@ class NotionSyncEngineTest {
         assertTrue(page["platform "].toString().contains("Youtube"))
         assertTrue(page["Date Added"].toString().contains("2026-11-20"))
         assertFalse(page["Notes"].toString().contains("name"))
-        assertTrue(fake.children.getValue(out.link.pageId).isNotEmpty())
+        assertEquals(1, fake.markerCount(out.link.pageId, it.captureId))
         assertEquals("schema read before write", "GET", fake.calls.first().method)
-        assertLegacyUntouched()
+        env.assertLegacyUntouched()
     }
 
     @Test
     fun secondSyncUpdatesSamePageAndNeverDuplicates() = runBlocking {
-        val it = item()
+        val it = env.item()
         val first = engine.sync(it, null) as SyncOutcome.Synced
         val second = engine.sync(it.copy(title = "Updated title"), first.link) as SyncOutcome.Synced
         assertFalse(second.created)
+        assertTrue(second.propertiesWritten)
         assertEquals(first.link.pageId, second.link.pageId)
         assertEquals(16, fake.pages.size)
-        assertEquals(1, fake.calls.count { c -> c.method == "POST" && c.path == "/pages" })
-        assertEquals("body written at create, never appended again", 0,
-            fake.calls.count { c -> c.path.endsWith("/children") && c.method == "PATCH" })
-        assertLegacyUntouched()
+        assertEquals(1, fake.createCount())
+        assertEquals("body written at create, never appended again", 0, fake.appendCount())
+        env.assertLegacyUntouched()
     }
 
     @Test
-    fun lostLocalLinkIsRecoveredByCaptureIdLookup() = runBlocking {
-        val it = item()
-        engine.sync(it, null) as SyncOutcome.Synced
-        // e.g. reinstall: local mapping gone, same Capture ID restored from backup
-        val again = engine.sync(it, null) as SyncOutcome.Synced
-        assertFalse(again.created)
-        assertEquals(16, fake.pages.size)
-        assertLegacyUntouched()
-    }
-
-    @Test
-    fun responseLostAfterCreateDoesNotDuplicateOnRetry() = runBlocking {
-        val it = item()
-        fake.loseNextCreateResponse = true
-        val first = engine.sync(it, null)
-        assertTrue(first is SyncOutcome.Retry && first.reason == NotionErrorKind.NETWORK)
-        val retry = engine.sync(it, null, attempt = 1) as SyncOutcome.Synced
-        assertFalse(retry.created)
-        assertEquals(16, fake.pages.size)
-        assertEquals("body not appended twice", 0, fake.calls.count { c -> c.method == "PATCH" && c.path.endsWith("/children") })
-        assertLegacyUntouched()
+    fun identicalResyncWritesNothing() = runBlocking {
+        val it = env.item()
+        val first = engine.sync(it, null) as SyncOutcome.Synced
+        val writesBefore = fake.writes().size
+        val again = engine.sync(it, first.link) as SyncOutcome.Synced
+        assertFalse(again.propertiesWritten)
+        assertEquals(writesBefore, fake.writes().size)
     }
 
     @Test
     fun unknownOptionsAreSkippedNotCreated() = runBlocking {
-        val it = item().copy(
+        val it = env.item().copy(
             mainCategory = "Agriculture & Farming",
             tags = listOf("Business", "Freelancing"),
             platform = SourcePlatform.INSTAGRAM,
@@ -139,13 +86,13 @@ class NotionSyncEngineTest {
         assertTrue(props["platform "].toString().contains("null"))
         val skippedValues = out.skipped.map { s -> s.value }
         assertTrue(skippedValues.containsAll(listOf("Agriculture & Farming", "Freelancing", "INSTAGRAM", "ARCHIVED")))
-        assertLegacyUntouched()
+        env.assertLegacyUntouched()
     }
 
     @Test
     fun missingCaptureIdPropertyBlocksAllWrites() = runBlocking {
         fake.schema = MasterSchemaFixture.json(captureIdType = null)
-        val out = engine.sync(item(), null)
+        val out = engine.sync(env.item(), null)
         assertTrue(out is SyncOutcome.ActionRequired && out.reason == ActionReason.SCHEMA_INCOMPATIBLE)
         assertTrue(fake.writes().isEmpty())
     }
@@ -153,21 +100,25 @@ class NotionSyncEngineTest {
     @Test
     fun wrongCaptureIdTypeBlocksAllWrites() = runBlocking {
         fake.schema = MasterSchemaFixture.json(captureIdType = "number")
-        val out = engine.sync(item(), null)
+        val out = engine.sync(env.item(), null)
         assertTrue(out is SyncOutcome.ActionRequired && out.reason == ActionReason.SCHEMA_INCOMPATIBLE)
         assertTrue(fake.writes().isEmpty())
     }
 
     @Test
     fun remoteEditIsReportedAsConflictAndNotOverwritten() = runBlocking {
-        val it = item()
+        val it = env.item()
         val first = engine.sync(it, null) as SyncOutcome.Synced
         fake.userEdit(first.link.pageId, "Status", buildJsonObject { putJsonObject("select") { put("name", "Completed") } })
         val out = engine.sync(it.copy(title = "App change"), first.link)
-        assertTrue(out is SyncOutcome.Conflict)
-        assertEquals(0, fake.calls.count { c -> c.method == "PATCH" && c.path == "/pages/${first.link.pageId}" })
-        val forced = engine.sync(it.copy(title = "App change"), first.link, overwriteRemoteEdits = true)
+        out as SyncOutcome.Conflict
+        assertEquals(ConflictKind.REMOTE_EDITED, out.kind)
+        assertEquals(listOf("Status", "Topic name"), out.differingProperties)
+        assertEquals("Completed", out.remoteValues["Status"])
+        assertEquals(0, fake.propertyPatchCount(first.link.pageId))
+        val forced = engine.sync(it.copy(title = "App change"), first.link, resolution = ConflictResolution.OVERWRITE_REMOTE)
         assertTrue(forced is SyncOutcome.Synced)
+        assertTrue(fake.pages.getValue(first.link.pageId).toString().contains("To Learn"))
     }
 
     @Test
@@ -180,7 +131,7 @@ class NotionSyncEngineTest {
         )
         for ((status, reason) in cases) {
             fake.failNext("GET", "/data_sources/", status)
-            val out = engine.sync(item(), null)
+            val out = engine.sync(env.item(), null)
             assertTrue("$status → $out", out is SyncOutcome.ActionRequired && out.reason == reason)
         }
         assertTrue(fake.writes().isEmpty())
@@ -189,64 +140,62 @@ class NotionSyncEngineTest {
     @Test
     fun retryableErrorsScheduleBackoff() = runBlocking {
         fake.failNext("POST", "/pages", 429, "rate_limited", retryAfter = "7")
-        val limited = engine.sync(item(), null)
-        assertEquals(SyncOutcome.Retry(NotionErrorKind.RATE_LIMITED, 7_000), limited)
+        assertEquals(SyncOutcome.Retry(RetryReason.RATE_LIMITED, 7_000), engine.sync(env.item(), null))
 
         fake.failNext("POST", "/pages", 500)
-        val server = engine.sync(item(), null)
-        assertTrue(server is SyncOutcome.Retry && server.reason == NotionErrorKind.SERVER && server.delayMs >= 1_000)
+        val server = engine.sync(env.item(), null)
+        assertTrue(server is SyncOutcome.Retry && server.reason == RetryReason.SERVER && server.delayMs >= 1_000)
 
         fake.failNext("POST", "/pages", 409, "conflict_error")
-        val conflict = engine.sync(item(), null)
-        assertTrue(conflict is SyncOutcome.Retry && conflict.reason == NotionErrorKind.CONFLICT)
+        val conflict = engine.sync(env.item(), null)
+        assertTrue(conflict is SyncOutcome.Retry && conflict.reason == RetryReason.CONFLICT)
 
         fake.throwNetworkOnNext = true
-        val offline = engine.sync(item(), null)
-        assertTrue(offline is SyncOutcome.Retry && offline.reason == NotionErrorKind.NETWORK)
+        val offline = engine.sync(env.item(), null)
+        assertTrue(offline is SyncOutcome.Retry && offline.reason == RetryReason.NETWORK)
 
         fake.failNext("POST", "/pages", 503)
-        val exhausted = engine.sync(item(), null, attempt = 7)
+        val exhausted = engine.sync(env.item(), null, attempt = 7)
         assertTrue(exhausted is SyncOutcome.ActionRequired && exhausted.reason == ActionReason.RETRIES_EXHAUSTED)
         assertEquals("no page created by failed attempts", 15, fake.pages.size)
     }
 
     @Test
     fun missingTokenNeedsAction() = runBlocking {
-        token = null
-        val out = engine.sync(item(), null)
+        env.token = null
+        val out = engine.sync(env.item(), null)
         assertTrue(out is SyncOutcome.ActionRequired && out.reason == ActionReason.NO_TOKEN)
         assertTrue(fake.calls.isEmpty())
     }
 
     @Test
     fun localOnlyItemsAreNeverSent() = runBlocking {
-        val out = engine.sync(item().copy(privacyScope = PrivacyScope.LOCAL_ONLY), null)
+        val out = engine.sync(env.item().copy(privacyScope = PrivacyScope.LOCAL_ONLY), null)
         assertTrue(out is SyncOutcome.NotEligible)
         assertTrue(fake.calls.isEmpty())
     }
 
     @Test
     fun invalidCaptureIdIsRejected() = runBlocking {
-        val out = engine.sync(item(id = "not-a-uuid"), null)
+        val out = engine.sync(env.item(id = "not-a-uuid"), null)
         assertTrue(out is SyncOutcome.ActionRequired && out.reason == ActionReason.INVALID_CAPTURE_ID)
-        val upper = engine.sync(item(id = UUID.randomUUID().toString().uppercase()), null)
+        val upper = engine.sync(env.item(id = UUID.randomUUID().toString().uppercase()), null)
         assertTrue(upper is SyncOutcome.ActionRequired)
         assertTrue(fake.calls.isEmpty())
     }
 
     @Test
     fun linkPointingAtLegacyPageIsRefused() = runBlocking {
-        val it = item()
+        val it = env.item()
         val good = engine.sync(it, null) as SyncOutcome.Synced
-        val hijacked = good.link.copy(pageId = legacyIds.first())
-        val out = engine.sync(it, hijacked)
+        val out = engine.sync(it, good.link.copy(pageId = env.legacyIds.first()))
         assertTrue(out is SyncOutcome.ActionRequired && out.reason == ActionReason.PAGE_NOT_OWNED)
-        assertLegacyUntouched()
+        env.assertLegacyUntouched()
     }
 
     @Test
     fun deletedRemotePageIsNotSilentlyRecreated() = runBlocking {
-        val it = item()
+        val it = env.item()
         val first = engine.sync(it, null) as SyncOutcome.Synced
         fake.pages.remove(first.link.pageId)
         val out = engine.sync(it, first.link)
@@ -256,8 +205,9 @@ class NotionSyncEngineTest {
 
     @Test
     fun duplicateRemotePagesNeedUserDecision() = runBlocking {
-        val it = item()
+        val it = env.item()
         engine.sync(it, null) as SyncOutcome.Synced
+        env.loseLocalJournal()
         fake.pages.keys.last().let { id -> fake.pages[id + "-copy"] = fake.pages.getValue(id) }
         val out = engine.sync(it, null)
         assertTrue(out is SyncOutcome.ActionRequired && out.reason == ActionReason.DUPLICATE_REMOTE_PAGES)
@@ -265,13 +215,14 @@ class NotionSyncEngineTest {
 
     @Test
     fun itemWithoutAiYetGetsBodyLaterExactlyOnce() = runBlocking {
-        val it = item(body = KnowledgeBody())
+        val it = env.item(body = KnowledgeBody())
         val first = engine.sync(it, null) as SyncOutcome.Synced
-        assertFalse(first.link.bodyWritten)
+        assertEquals(BodyState.ABSENT, first.bodyState)
         val enriched = it.copy(body = KnowledgeBody(summary = "পরে AI সারসংক্ষেপ"))
         val second = engine.sync(enriched, first.link) as SyncOutcome.Synced
-        assertTrue(second.link.bodyWritten)
+        assertEquals(BodyState.WRITTEN, second.bodyState)
         engine.sync(enriched, second.link) as SyncOutcome.Synced
-        assertEquals(1, fake.calls.count { c -> c.method == "PATCH" && c.path.endsWith("/children") })
+        assertEquals(1, fake.appendCount())
+        assertEquals(1, fake.markerCount(first.link.pageId, it.captureId))
     }
 }

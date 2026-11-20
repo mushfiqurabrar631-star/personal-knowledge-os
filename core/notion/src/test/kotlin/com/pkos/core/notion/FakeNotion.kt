@@ -3,6 +3,8 @@ package com.pkos.core.notion
 import com.pkos.core.notion.api.HttpRequest
 import com.pkos.core.notion.api.HttpResponse
 import com.pkos.core.notion.api.HttpTransport
+import com.pkos.core.notion.sync.SyncJournal
+import com.pkos.core.notion.sync.WriteIntent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -63,38 +65,86 @@ object MasterSchemaFixture {
     }
 }
 
+/** In-memory journal; can be told to fail to simulate a broken local database. */
+class FakeJournal : SyncJournal {
+    val intents = mutableMapOf<String, WriteIntent>()
+    val history = mutableListOf<WriteIntent>()
+    var failReads = false
+    var failWrites = false
+
+    override suspend fun lastIntent(captureId: String): WriteIntent? {
+        if (failReads) throw IllegalStateException("db locked")
+        return intents[captureId]
+    }
+
+    override suspend fun recordIntent(intent: WriteIntent) {
+        if (failWrites) throw IllegalStateException("disk full")
+        intents[intent.captureId] = intent
+        history += intent
+    }
+}
+
 /**
  * In-memory Notion API good enough to exercise the sync engine end to end.
- * Unknown select options are REJECTED here (real Notion would silently create them),
- * so any attempt to change the schema shows up as a test failure.
+ * - Unknown select options are recorded as violations (real Notion would silently create them).
+ * - There is no DELETE route: any delete attempt would fail the request and show in [calls].
+ * - Supports failure injection by route or by call index, lost responses (applied, then IOException),
+ *   query-index lag, and the owner adding/editing content in the Notion UI.
  */
 class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTransport {
-    data class Call(val method: String, val path: String, val body: JsonObject?)
-    private data class Failure(val method: String, val pathPrefix: String, val status: Int, val code: String, val retryAfter: String?)
+    data class Call(val index: Int, val method: String, val path: String, val body: JsonObject?)
+    enum class Mode { FAIL_BEFORE, LOSE_RESPONSE_AFTER }
+    private data class RouteFailure(val method: String, val pathPrefix: String, val status: Int, val code: String, val retryAfter: String?)
 
     val calls = mutableListOf<Call>()
     val pages = linkedMapOf<String, JsonObject>()
     val children = mutableMapOf<String, MutableList<JsonObject>>()
     val optionViolations = mutableListOf<String>()
-    private val failures = ArrayDeque<Failure>()
+    /** Pages the query endpoint does not return yet (index lag). */
+    val hiddenFromQuery = mutableSetOf<String>()
+    var hideNewPagesFromQuery = false
+    var childrenPageSize = 100
+    private val routeFailures = ArrayDeque<RouteFailure>()
+    private val indexFailures = mutableMapOf<Int, Mode>()
+    private val loseResponses = ArrayDeque<Pair<String, String>>()
     private var clock = 0
-    var loseNextCreateResponse = false
     var throwNetworkOnNext = false
 
     fun failNext(method: String, pathPrefix: String, status: Int, code: String = "error", retryAfter: String? = null) {
-        failures += Failure(method, pathPrefix, status, code, retryAfter)
+        routeFailures += RouteFailure(method, pathPrefix, status, code, retryAfter)
+    }
+
+    /** The request is applied on the server, but the client never sees the response. */
+    fun loseResponseOfNext(method: String, pathPrefix: String) {
+        loseResponses += method to pathPrefix
+    }
+
+    /** Fail the call with this 0-based global index (counting from now on, across all calls so far). */
+    fun failAtCall(index: Int, mode: Mode) {
+        indexFailures[index] = mode
     }
 
     fun writes() = calls.filter { it.method != "GET" && !(it.method == "POST" && it.path.endsWith("/query")) }
+    fun createCount() = calls.count { it.method == "POST" && it.path == "/pages" }
+    fun appendCount() = calls.count { it.method == "PATCH" && it.path.endsWith("/children") }
+    fun propertyPatchCount(pageId: String? = null) =
+        calls.count { it.method == "PATCH" && it.path.startsWith("/pages/") && (pageId == null || it.path == "/pages/$pageId") }
 
-    /** Seeds a pre-existing entry with no Capture ID, like the user's 15 old rows. */
+    fun markerCount(pageId: String, captureId: String) =
+        children[pageId].orEmpty().count { it.toString().contains("pkos-body:v1:$captureId") }
+
+    fun pagesWithCaptureId(captureId: String) =
+        pages.values.count { plain(it["properties"]!!.jsonObject["Capture ID"]) == captureId }
+
+    /** Seeds a pre-existing entry with no Capture ID, like the owner's 15 old rows. */
     fun seedLegacyPage(title: String): String {
         val id = UUID.randomUUID().toString()
         pages[id] = page(id, buildJsonObject { put("Topic name", inputText("title", title)) })
+        children[id] = mutableListOf(blockResponse(paragraphInput("Owner's old note for $title")))
         return id
     }
 
-    /** Simulates the user editing a property in the Notion UI. */
+    /** Simulates the owner editing a property in the Notion UI. */
     fun userEdit(pageId: String, name: String, input: JsonObject) {
         val p = pages.getValue(pageId)
         val props = p["properties"]!!.jsonObject.toMutableMap()
@@ -104,52 +154,88 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
         })
     }
 
+    /** Simulates the owner typing their own blocks into the page. */
+    fun userAppend(pageId: String, vararg texts: String) {
+        children.getOrPut(pageId) { mutableListOf() } += texts.map { blockResponse(paragraphInput(it)) }
+        bump(pageId)
+    }
+
     override suspend fun execute(request: HttpRequest): HttpResponse {
         val path = request.url.removePrefix("https://api.notion.com/v1")
         val body = request.body?.let { Json.parseToJsonElement(it).jsonObject }
-        calls += Call(request.method, path, body)
+        val index = calls.size
+        calls += Call(index, request.method, path, body)
         check(request.headers["Notion-Version"] == "2026-03-11")
         if (throwNetworkOnNext) { throwNetworkOnNext = false; throw IOException("simulated offline") }
-        failures.firstOrNull { it.method == request.method && path.startsWith(it.pathPrefix) }?.let {
-            failures.remove(it)
+        val byIndex = indexFailures.remove(index)
+        if (byIndex == Mode.FAIL_BEFORE) return error(503, "service_unavailable")
+        routeFailures.firstOrNull { it.method == request.method && path.startsWith(it.pathPrefix) }?.let {
+            routeFailures.remove(it)
             return HttpResponse(
                 it.status,
                 if (it.retryAfter != null) mapOf("Retry-After" to it.retryAfter) else emptyMap(),
                 """{"object":"error","status":${it.status},"code":"${it.code}","message":"simulated"}""",
             )
         }
+        val response = route(request.method, path, body)
+        val lose = loseResponses.firstOrNull { it.first == request.method && path.startsWith(it.second) }
+        if (lose != null) { loseResponses.remove(lose); throw IOException("response lost") }
+        if (byIndex == Mode.LOSE_RESPONSE_AFTER) throw IOException("response lost (index $index)")
+        return response
+    }
+
+    private fun route(method: String, path: String, body: JsonObject?): HttpResponse {
         val pathOnly = path.substringBefore('?')
+        val query = path.substringAfter('?', "").split('&').filter { it.contains('=') }
+            .associate { it.substringBefore('=') to java.net.URLDecoder.decode(it.substringAfter('='), "UTF-8") }
         return when {
-            request.method == "GET" && pathOnly == "/data_sources/$TEST_DS" -> ok(schema)
-            request.method == "GET" && pathOnly.startsWith("/data_sources/") -> notFound()
-            request.method == "POST" && pathOnly == "/data_sources/$TEST_DS/query" -> query(body!!)
-            request.method == "POST" && pathOnly == "/pages" -> create(body!!)
-            request.method == "GET" && pathOnly.startsWith("/pages/") -> pages[pathOnly.removePrefix("/pages/")]?.let { ok(it) } ?: notFound()
-            request.method == "PATCH" && pathOnly.startsWith("/pages/") -> update(pathOnly.removePrefix("/pages/"), body!!)
-            request.method == "GET" && pathOnly.endsWith("/children") -> {
-                val id = pathOnly.removePrefix("/blocks/").removeSuffix("/children")
-                ok(buildJsonObject { put("results", JsonArray(children[id].orEmpty())) })
-            }
-            request.method == "PATCH" && pathOnly.endsWith("/children") -> {
+            method == "GET" && pathOnly == "/data_sources/$TEST_DS" -> ok(schema)
+            method == "GET" && pathOnly.startsWith("/data_sources/") -> notFound()
+            method == "POST" && pathOnly == "/data_sources/$TEST_DS/query" -> query(body!!)
+            method == "POST" && pathOnly == "/pages" -> create(body!!)
+            method == "GET" && pathOnly.startsWith("/pages/") -> pages[pathOnly.removePrefix("/pages/")]?.let { ok(it) } ?: notFound()
+            method == "PATCH" && pathOnly.startsWith("/pages/") -> update(pathOnly.removePrefix("/pages/"), body!!)
+            method == "GET" && pathOnly.endsWith("/children") -> listChildren(
+                pathOnly.removePrefix("/blocks/").removeSuffix("/children"),
+                query["page_size"]?.toInt() ?: 100,
+                query["start_cursor"],
+            )
+            method == "PATCH" && pathOnly.endsWith("/children") -> {
                 val id = pathOnly.removePrefix("/blocks/").removeSuffix("/children")
                 if (id !in pages) return notFound()
-                children.getOrPut(id) { mutableListOf() } += body!!["children"]!!.jsonArray.map { it.jsonObject }
+                children.getOrPut(id) { mutableListOf() } += body!!["children"]!!.jsonArray.map { blockResponse(it.jsonObject) }
                 bump(id)
                 ok(buildJsonObject { put("object", "list") })
             }
-            else -> HttpResponse(400, body = """{"object":"error","code":"invalid_request_url","message":"no route"}""")
+            else -> error(400, "invalid_request_url")
         }
+    }
+
+    private fun listChildren(id: String, requested: Int, cursor: String?): HttpResponse {
+        if (id !in pages) return notFound()
+        val size = minOf(requested, childrenPageSize)
+        val all = children[id].orEmpty()
+        val start = cursor?.toInt() ?: 0
+        val slice = all.drop(start).take(size)
+        val next = start + slice.size
+        return ok(buildJsonObject {
+            put("object", "list")
+            put("results", JsonArray(slice))
+            put("has_more", next < all.size)
+            if (next < all.size) put("next_cursor", next.toString()) else put("next_cursor", JsonNull)
+        })
     }
 
     private fun query(body: JsonObject): HttpResponse {
         val filter = body["filter"]!!.jsonObject
         val prop = filter["property"]!!.jsonPrimitive.content
         val equals = filter["rich_text"]!!.jsonObject["equals"]!!.jsonPrimitive.content
-        val matches = pages.values.filter { p ->
-            p["in_trash"]?.jsonPrimitive?.content != "true" &&
+        val matches = pages.filter { (id, p) ->
+            id !in hiddenFromQuery &&
+                p["in_trash"]?.jsonPrimitive?.content != "true" &&
                 plain(p["properties"]!!.jsonObject[prop]) == equals
-        }
-        return ok(buildJsonObject { put("results", JsonArray(matches)); put("has_more", false) })
+        }.values
+        return ok(buildJsonObject { put("results", JsonArray(matches.toList())); put("has_more", false) })
     }
 
     private fun create(body: JsonObject): HttpResponse {
@@ -159,8 +245,8 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
         validate(props)?.let { return it }
         val id = UUID.randomUUID().toString()
         pages[id] = page(id, props)
-        body["children"]?.jsonArray?.let { children[id] = it.map { c -> c.jsonObject }.toMutableList() }
-        if (loseNextCreateResponse) { loseNextCreateResponse = false; throw IOException("response lost after create") }
+        if (hideNewPagesFromQuery) hiddenFromQuery += id
+        body["children"]?.jsonArray?.let { children[id] = it.map { c -> blockResponse(c.jsonObject) }.toMutableList() }
         return ok(pages.getValue(id))
     }
 
@@ -179,12 +265,11 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
     private fun validate(props: JsonObject): HttpResponse? {
         val schemaProps = schema["properties"]!!.jsonObject
         for ((name, value) in props) {
-            val def = schemaProps[name]?.jsonObject
-                ?: return HttpResponse(400, body = """{"object":"error","code":"validation_error","message":"unknown property"}""")
+            val def = schemaProps[name]?.jsonObject ?: return error(400, "validation_error")
             val type = def["type"]!!.jsonPrimitive.content
             val options = def[type]?.jsonObject?.get("options")?.jsonArray?.map { it.jsonObject["name"]!!.jsonPrimitive.content }
             val v = value.jsonObject
-            if (!v.containsKey(type)) return HttpResponse(400, body = """{"object":"error","code":"validation_error","message":"type mismatch"}""")
+            if (!v.containsKey(type)) return error(400, "validation_error")
             val names = when (type) {
                 "select" -> listOfNotNull((v["select"] as? JsonObject)?.get("name")?.jsonPrimitive?.content)
                 "multi_select" -> v["multi_select"]!!.jsonArray.map { it.jsonObject["name"]!!.jsonPrimitive.content }
@@ -211,18 +296,38 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
         }
     }
 
+    /** Converts request property values to the response shape (adds plain_text, type, id; date end/time_zone). */
     private fun toResponse(name: String, input: JsonObject): JsonObject {
         val type = input.keys.first { it != "type" }
         val value: JsonElement = when (type) {
-            "title", "rich_text" -> buildJsonArray {
-                input[type]!!.jsonArray.forEach { t ->
-                    val content = t.jsonObject["text"]!!.jsonObject["content"]!!.jsonPrimitive.content
-                    addJsonObject { put("type", "text"); putJsonObject("text") { put("content", content) }; put("plain_text", content) }
-                }
+            "title", "rich_text" -> richResponse(input[type]!!.jsonArray)
+            "date" -> buildJsonObject {
+                put("start", input["date"]!!.jsonObject["start"]!!)
+                put("end", input["date"]!!.jsonObject["end"] ?: JsonNull)
+                put("time_zone", JsonNull)
             }
             else -> input[type]!!
         }
         return buildJsonObject { put("id", name); put("type", type); put(type, value) }
+    }
+
+    private fun blockResponse(input: JsonObject): JsonObject {
+        val type = input["type"]!!.jsonPrimitive.content
+        val content = input[type]!!.jsonObject
+        val rich = content["rich_text"]?.jsonArray
+        return buildJsonObject {
+            put("object", "block")
+            put("id", UUID.randomUUID().toString())
+            put("type", type)
+            put(type, if (rich == null) content else JsonObject(content.toMutableMap().apply { put("rich_text", richResponse(rich)) }))
+        }
+    }
+
+    private fun richResponse(arr: JsonArray) = buildJsonArray {
+        arr.forEach { t ->
+            val content = t.jsonObject["text"]!!.jsonObject["content"]!!.jsonPrimitive.content
+            addJsonObject { put("type", "text"); putJsonObject("text") { put("content", content) }; put("plain_text", content) }
+        }
     }
 
     private fun empty(name: String, type: String): JsonObject = buildJsonObject {
@@ -246,11 +351,18 @@ class FakeNotion(var schema: JsonObject = MasterSchemaFixture.json()) : HttpTran
 
     private fun tick() = "2026-11-20T05:%02d:00.000Z".format((clock++) % 60)
     private fun ok(json: JsonObject) = HttpResponse(200, body = json.toString())
-    private fun notFound() = HttpResponse(404, body = """{"object":"error","status":404,"code":"object_not_found","message":"not found"}""")
+    private fun notFound() = error(404, "object_not_found")
+    private fun error(status: Int, code: String) =
+        HttpResponse(status, body = """{"object":"error","status":$status,"code":"$code","message":"simulated"}""")
 
     companion object {
         fun inputText(type: String, content: String) = buildJsonObject {
             putJsonArray(type) { addJsonObject { put("type", "text"); putJsonObject("text") { put("content", content) } } }
+        }
+
+        fun paragraphInput(text: String) = buildJsonObject {
+            put("object", "block"); put("type", "paragraph")
+            putJsonObject("paragraph") { put("rich_text", inputText("rich_text", text)["rich_text"]!!) }
         }
     }
 }

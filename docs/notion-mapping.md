@@ -48,15 +48,51 @@ Never written: `Notes` (it is a select), `Parent item`, `Sub-item`.
 ## Page body (content blocks, no new properties)
 
 Summary · Key points · Topic / Subtopic / Purpose / AI Confidence / review reason ·
-Original text · OCR text · Source app · full URL if too long · footer with Capture ID.
-Written once (at create, or the first sync after AI finishes). Never rewritten, so the
-owner's own notes in the page are safe.
+Original text · OCR text · Source app · full URL if too long · footer.
 
-## Conflict policy
+**Body marker.** The footer is always the last PKOS block and contains
+`pkos-body:v1:<capture-id>`. PKOS treats its body as present only if that exact token
+(for this item) is found while paging through the page's blocks. The owner's own blocks,
+or a footer copied from another item, do not count.
+
+- Written once: at create, or appended once when AI finishes later. Never rewritten.
+- Append only adds at the end. No block is ever edited or deleted (the client has no such call).
+- If the page is too long to scan (default 20 × 100 blocks) the state is `UNKNOWN` and nothing is appended.
+- If the owner deletes the footer *and* the local mapping is lost, PKOS would append its body again.
+
+## Conflict and adoption policy
 
 After every verified write PKOS stores a SHA-256 of the managed property values read back
-from Notion. If the next sync sees a different hash, the page was edited in Notion: PKOS
-reports a conflict and writes nothing until the owner chooses "keep Notion" or "overwrite".
+from Notion. Before every write it stores a **write intent** (kind + hash of what it is
+about to send) in the local journal.
+
+| Situation | Remote values equal… | Result |
+|---|---|---|
+| Linked page | what PKOS would write now | nothing written |
+| Linked page | PKOS's last verified write or last intent | update |
+| Linked page | something else | `Conflict(REMOTE_EDITED)` — nothing written |
+| No local mapping, page found by Capture ID | what PKOS would write now | adopt, nothing written |
+| No local mapping, page found by Capture ID | PKOS's last intent (journal survived) | adopt + update |
+| No local mapping, page found by Capture ID | something else | `Conflict(ADOPTION_REVIEW)` — nothing written |
+
+The owner resolves a conflict with **Overwrite Notion** (write local values) or **Keep Notion**
+(write nothing; the app must copy `keptRemoteValues` into the local item before the next sync).
+
+## Crash and lost-response safety
+
+| Failure | Recovery |
+|---|---|
+| Create applied, response lost | Journal has CREATE intent → query by Capture ID finds the page → adopted, no second page |
+| …and the query index lags | Wait (`AWAITING_REMOTE_INDEX`, default 120 s) instead of creating again |
+| Create never reached Notion | After the grace period, create once |
+| Read-back after create failed | Page id was journalled → fetched directly, even if the index lags |
+| Local mapping save failed | Next sync adopts via Capture ID; journal hash prevents a false conflict |
+| Property update applied, response lost | Remote equals intent → no false conflict, no resend |
+| Body append applied, response lost | Marker scan finds it → not appended again |
+| Journal cannot be read or written | Nothing is sent; retry later |
+
+Every request of a create and of an update+append was tested with both failure modes
+(`CrashChaosTest`).
 
 ## Error handling
 

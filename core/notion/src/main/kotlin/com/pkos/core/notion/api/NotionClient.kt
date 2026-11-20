@@ -8,6 +8,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.IOException
+import java.net.URLEncoder
 
 const val NOTION_API_BASE = "https://api.notion.com/v1"
 
@@ -57,8 +58,10 @@ class NotionClient(
     suspend fun retrievePage(pageId: String) = call("GET", "/pages/$pageId", null)
     suspend fun updatePageProperties(pageId: String, properties: JsonObject) =
         call("PATCH", "/pages/$pageId", buildJsonObject { put("properties", properties) })
-    suspend fun listBlockChildren(blockId: String, pageSize: Int = 1) =
-        call("GET", "/blocks/$blockId/children?page_size=$pageSize", null)
+    suspend fun listBlockChildren(blockId: String, pageSize: Int = 100, startCursor: String? = null): NotionResult<JsonObject> {
+        val cursor = startCursor?.let { "&start_cursor=" + URLEncoder.encode(it, Charsets.UTF_8.name()) }.orEmpty()
+        return call("GET", "/blocks/$blockId/children?page_size=$pageSize$cursor", null)
+    }
     suspend fun appendBlockChildren(blockId: String, children: JsonArray) =
         call("PATCH", "/blocks/$blockId/children", buildJsonObject { put("children", children) })
 

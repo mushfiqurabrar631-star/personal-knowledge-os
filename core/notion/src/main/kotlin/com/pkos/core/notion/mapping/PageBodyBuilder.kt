@@ -62,13 +62,16 @@ object PageBodyBuilder {
         }
 
         if (blocks.isEmpty()) return emptyList()
-        blocks += divider()
-        blocks += paragraph(
-            "PKOS · Captured ${timeFormat.format(item.capturedAt.atZone(zone))} · Capture ID ${item.captureId}",
-            italic = true,
-        )
-        return if (blocks.size > MAX_BLOCKS) blocks.take(MAX_BLOCKS - 1) + paragraph("…", italic = true) else blocks
+        // Room for divider + footer is reserved so the marker is always the last block.
+        val content = if (blocks.size > MAX_BLOCKS - 3) blocks.take(MAX_BLOCKS - 3) + paragraph("…", italic = true) else blocks
+        return content + divider() + footer(item, zone)
     }
+
+    /** Footer carrying the [BodyMarker] token. Must stay the last block of the PKOS body. */
+    private fun footer(item: SyncItem, zone: ZoneId) = paragraph(
+        "PKOS · Captured ${timeFormat.format(item.capturedAt.atZone(zone))} · ${BodyMarker.token(item.captureId)}",
+        italic = true,
+    )
 
     private fun addLongText(blocks: MutableList<JsonObject>, title: String, text: String?) {
         if (text.isNullOrBlank()) return

@@ -14,8 +14,9 @@ See [CHECKLIST.md](CHECKLIST.md). Current: Notion mapping and sync core (`:core:
 
 ## Verify locally
 ```bash
-./scripts/verify-core-notion.sh        # works offline with a local Gradle 8.14 install
-./gradlew :core:notion:test            # once Maven repositories are reachable
+./scripts/verify-core-notion.sh                 # offline; finds a Kotlin compiler + jars automatically
+./scripts/verify-core-notion.sh --report out.txt # also writes the PASS/FAIL list
+./scripts/verify-core-notion.sh --gradle        # gradle :core:notion:test (needs Maven Central)
 ```
 
 ## Notion setup (owner)
@@ -24,4 +25,4 @@ See [CHECKLIST.md](CHECKLIST.md). Current: Notion mapping and sync core (`:core:
 3. Paste the token in PKOS → Settings → Notion (stored encrypted with Android Keystore).
    Never paste the token in chat, code or GitHub.
 
-Mapping rules: [docs/notion-mapping.md](docs/notion-mapping.md) · Decision: [ADR 0001](docs/adr/0001-notion-target-and-sync.md)
+Mapping rules: [docs/notion-mapping.md](docs/notion-mapping.md) · Decisions: [ADR 0001](docs/adr/0001-notion-target-and-sync.md), [ADR 0002](docs/adr/0002-body-marker-journal-adoption.md) · Tests: [docs/test-report.md](docs/test-report.md)
