@@ -15,6 +15,7 @@ import com.pkos.core.data.repository.StorageRepository
 import com.pkos.core.data.repository.SyncOverviewRepository
 import com.pkos.core.data.settings.DataStoreSettingsRepository
 import com.pkos.core.data.settings.SettingsRepository
+import kotlinx.coroutines.flow.first
 
 /** Connection state of an external destination. Only a real, verified connection may report CONNECTED. */
 enum class ConnectionState { NOT_CONNECTED, CONNECTED, ACTION_REQUIRED }
@@ -60,6 +61,7 @@ class AppContainer(
     val context: Context,
     val database: PkosDatabase,
     val settings: SettingsRepository,
+    freeBytes: () -> Long = { android.os.StatFs(context.filesDir.path).availableBytes },
 ) {
     val knowledge = KnowledgeRepository(database)
     val categories = CategoryRepository(database)
@@ -67,6 +69,24 @@ class AppContainer(
     val collections = CollectionRepository(database)
     val storage = StorageRepository(context)
     val integrations = IntegrationStatusProvider()
+    val attachments = com.pkos.core.data.capture.AttachmentStore(java.io.File(context.filesDir, StorageRepository.ATTACHMENTS_DIR))
+    val captureRepository = com.pkos.core.data.capture.CaptureRepository(
+        database, attachments, freeBytes = freeBytes,
+    )
+
+    /** Called after every successful capture (M3 schedules background processing here). */
+    var onCaptured: (String) -> Unit = {}
+
+    /** Single entry point for every capture path (Share, floating button, in-app sheet). */
+    suspend fun capture(request: com.pkos.core.data.capture.CaptureRequest): com.pkos.core.data.capture.CaptureResult {
+        val localOnly = settings.settings.first().localOnlyByDefault
+        val result = captureRepository.capture(
+            request,
+            if (localOnly) com.pkos.core.data.model.PrivacyScope.LOCAL_ONLY else com.pkos.core.data.model.PrivacyScope.NORMAL,
+        )
+        if (result is com.pkos.core.data.capture.CaptureResult.Saved) onCaptured(result.itemId)
+        return result
+    }
     val permissions = PermissionStatusProvider(context)
 
     companion object {

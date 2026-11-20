@@ -1,6 +1,7 @@
 package com.pkos.app.feature.settings
 
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -41,6 +42,9 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -90,6 +94,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun refreshStorage() { viewModelScope.launch { _storage.value = container.storage.usage() } }
     fun setTheme(mode: ThemeMode) { viewModelScope.launch { container.settings.setThemeMode(mode) } }
     fun setCloudAi(on: Boolean) { viewModelScope.launch { container.settings.setCloudAiEnabled(on) } }
+    fun setFloating(on: Boolean) { viewModelScope.launch { container.settings.setFloatingCaptureEnabled(on) } }
     fun setLocalOnly(on: Boolean) { viewModelScope.launch { container.settings.setLocalOnlyByDefault(on) } }
     fun replayOnboarding(then: () -> Unit) { viewModelScope.launch { container.settings.setOnboardingCompleted(false); then() } }
 }
@@ -113,6 +118,44 @@ fun SettingsRoute(actions: SettingsActions) {
     val overlay = remember(permissionsTick) { container.permissions.overlay() }
     val notifications = remember(permissionsTick) { container.permissions.notifications() }
     var language by remember { mutableIntStateOf(currentLanguage().ordinal) }
+    val context = LocalContext.current
+    var explainOverlay by remember { mutableStateOf(false) }
+    var awaitingOverlay by remember { mutableStateOf(false) }
+    var deniedNotice by remember { mutableStateOf(false) }
+    val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+    fun enableFloating() {
+        vm.setFloating(true)
+        com.pkos.app.capture.FloatingCaptureService.start(context)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && notifications != PermissionState.GRANTED) notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
+    // Returning from the system "Display over other apps" page: enable only if the owner actually granted it.
+    LaunchedEffect(permissionsTick) {
+        if (awaitingOverlay) {
+            awaitingOverlay = false
+            if (com.pkos.app.capture.FloatingCaptureService.canRun(context)) enableFloating() else deniedNotice = true
+        }
+    }
+    if (explainOverlay) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { explainOverlay = false },
+            title = { Text(stringResource(R.string.floating_permission_title)) },
+            text = { Text(stringResource(R.string.floating_permission_body)) },
+            confirmButton = {
+                androidx.compose.material3.Button(onClick = {
+                    explainOverlay = false; awaitingOverlay = true
+                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, ("package:" + context.packageName).toUri()))
+                }) { Text(stringResource(R.string.floating_permission_open)) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { explainOverlay = false }) { Text(stringResource(R.string.capture_dialog_cancel)) } },
+        )
+    }
+    if (deniedNotice) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deniedNotice = false },
+            text = { Text(stringResource(R.string.floating_permission_denied)) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { deniedNotice = false }) { Text(stringResource(R.string.action_ok)) } },
+        )
+    }
     SettingsScreen(
         settings = settings,
         storage = storage,
@@ -123,6 +166,13 @@ fun SettingsRoute(actions: SettingsActions) {
         onLanguage = { l -> language = l.ordinal; applyLanguage(l) },
         onCloudAi = vm::setCloudAi,
         onLocalOnly = vm::setLocalOnly,
+        onFloating = { on ->
+            when {
+                !on -> { vm.setFloating(false); com.pkos.app.capture.FloatingCaptureService.stop(context) }
+                com.pkos.app.capture.FloatingCaptureService.canRun(context) -> enableFloating()
+                else -> explainOverlay = true
+            }
+        },
         actions = actions.copy(onReplayOnboarding = { vm.replayOnboarding(actions.onReplayOnboarding) }),
     )
 }
@@ -153,6 +203,7 @@ fun SettingsScreen(
     onCloudAi: (Boolean) -> Unit,
     onLocalOnly: (Boolean) -> Unit,
     actions: SettingsActions,
+    onFloating: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     Scaffold(
@@ -186,6 +237,12 @@ fun SettingsScreen(
                 Group {
                     LinkRow(Icons.Outlined.Hub, stringResource(R.string.settings_integrations), stringResource(R.string.settings_integrations_sub), actions.openIntegrations)
                     LinkRow(Icons.Outlined.CloudSync, stringResource(R.string.settings_backup_sync), stringResource(R.string.settings_backup_sync_sub), actions.openBackupSync)
+                }
+            }
+            item { SectionHeader(stringResource(R.string.settings_section_capture)) }
+            item {
+                Group {
+                    SwitchRow(Icons.Outlined.AddCircleOutline, stringResource(R.string.floating_title), stringResource(R.string.floating_sub), settings.floatingCaptureEnabled, onFloating, "floating")
                 }
             }
             item { SectionHeader(stringResource(R.string.settings_section_privacy)) }

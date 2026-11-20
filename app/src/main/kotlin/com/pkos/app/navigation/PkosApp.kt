@@ -1,5 +1,6 @@
 package com.pkos.app.navigation
 
+import kotlinx.coroutines.launch
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -61,7 +62,6 @@ import androidx.navigation.toRoute
 import com.pkos.app.R
 import com.pkos.app.di.LocalAppContainer
 import com.pkos.app.feature.ask.AskAiScreen
-import com.pkos.app.feature.capture.CaptureSheet
 import com.pkos.app.feature.home.HomeActions
 import com.pkos.app.feature.home.HomeRoute as HomeRouteScreen
 import com.pkos.app.feature.inbox.InboxRoute as InboxRouteScreen
@@ -94,7 +94,20 @@ private val topLevel = (leftTabs + rightTabs).map { it.routeClass }
  * (spec 2.3 #7). Topics, Ask AI, Integrations and Backup & Sync are pushed screens.
  */
 @Composable
-fun PkosApp(startWithOnboarding: Boolean, onOnboardingFinished: () -> Unit, navController: NavHostController = rememberNavController()) {
+fun PkosApp(
+    startWithOnboarding: Boolean,
+    onOnboardingFinished: () -> Unit,
+    navController: NavHostController = rememberNavController(),
+    openItemId: String? = null,
+    onOpenItemConsumed: () -> Unit = {},
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    val openLabel = androidx.compose.ui.res.stringResource(com.pkos.app.R.string.capture_open)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    androidx.compose.runtime.LaunchedEffect(openItemId) {
+        if (openItemId != null && !startWithOnboarding) { navController.navigate(ItemDetailRoute(openItemId)); onOpenItemConsumed() }
+    }
     val backStack by navController.currentBackStackEntryAsState()
     val destination = backStack?.destination
     val showBottomBar = destination != null && topLevel.any { cls -> destination.hierarchy.any { it.hasRoute(cls) } }
@@ -110,6 +123,7 @@ fun PkosApp(startWithOnboarding: Boolean, onOnboardingFinished: () -> Unit, navC
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar, Modifier.testTag("snackbar")) },
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(Modifier.selectableGroup().testTag("bottom_bar")) {
@@ -169,7 +183,19 @@ fun PkosApp(startWithOnboarding: Boolean, onOnboardingFinished: () -> Unit, navC
             composable<ItemDetailRoute> { entry -> ItemDetailRouteScreen(entry.toRoute<ItemDetailRoute>().id, onBack = { navController.popBackStack() }) }
         }
     }
-    if (showCapture) CaptureSheet(onDismiss = { showCapture = false })
+    com.pkos.app.capture.CaptureFlow(visible = showCapture, onDismiss = { showCapture = false }) { result ->
+        scope.launch {
+            val r = snackbar.showSnackbar(
+                com.pkos.app.capture.CaptureMessages.snackbar(context, result),
+                actionLabel = if (result is com.pkos.core.data.capture.CaptureResult.Saved) openLabel else null,
+                withDismissAction = true,
+                duration = androidx.compose.material3.SnackbarDuration.Long,
+            )
+            if (r == androidx.compose.material3.SnackbarResult.ActionPerformed && result is com.pkos.core.data.capture.CaptureResult.Saved) {
+                navController.navigate(ItemDetailRoute(result.itemId))
+            }
+        }
+    }
 }
 
 @Composable

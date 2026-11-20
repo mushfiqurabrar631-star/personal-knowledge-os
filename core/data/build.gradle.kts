@@ -19,6 +19,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     testOptions { unitTests { isIncludeAndroidResources = true } }
+    // Exported Room schemas double as test assets so MigrationTestHelper can verify every migration.
+    sourceSets.getByName("test").assets.directories.add("$projectDir/schemas")
 }
 
 kotlin {
@@ -34,6 +36,7 @@ dependencies {
     api(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    implementation(project(":core:notion"))
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
 

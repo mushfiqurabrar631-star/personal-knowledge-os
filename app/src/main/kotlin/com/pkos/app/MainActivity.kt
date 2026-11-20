@@ -24,6 +24,12 @@ import kotlinx.coroutines.launch
 /** AppCompatActivity so per-app language (AppCompatDelegate) works on Android 8–12 too. */
 class MainActivity : AppCompatActivity() {
     private val initialSettings = MutableStateFlow<AppSettings?>(null)
+    private val openItem = MutableStateFlow<String?>(null)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(EXTRA_OPEN_ITEM)?.let { openItem.value = it }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
@@ -33,8 +39,14 @@ class MainActivity : AppCompatActivity() {
         splash.setKeepOnScreenCondition { initialSettings.value == null }
         lifecycleScope.launch {
             container.categories.ensureStarterTaxonomy()
-            initialSettings.value = container.settings.settings.first()
+            val first = container.settings.settings.first()
+            // Restore the owner's floating button after a reboot/app restart — only if the permission is still granted.
+            if (first.floatingCaptureEnabled && com.pkos.app.capture.FloatingCaptureService.canRun(this@MainActivity)) {
+                runCatching { com.pkos.app.capture.FloatingCaptureService.start(this@MainActivity) }
+            }
+            initialSettings.value = first
         }
+        if (savedInstanceState == null) openItem.value = intent.getStringExtra(EXTRA_OPEN_ITEM)
         setContent { Root(container) }
     }
 
@@ -42,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private fun Root(container: AppContainer) {
         val initial by initialSettings.collectAsStateWithLifecycle()
         val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = null)
+        val pendingItem by openItem.collectAsStateWithLifecycle()
         val first = initial ?: return
         val current = settings ?: first
         val dark = isDarkTheme(current.themeMode)
@@ -57,13 +70,21 @@ class MainActivity : AppCompatActivity() {
                 PkosApp(
                     startWithOnboarding = !first.onboardingCompleted,
                     onOnboardingFinished = { lifecycleScope.launch { container.settings.setOnboardingCompleted(true) } },
+                    openItemId = pendingItem,
+                    onOpenItemConsumed = { openItem.value = null },
                 )
             }
         }
     }
 
-    private companion object {
-        val LIGHT_SCRIM = android.graphics.Color.argb(0xE6, 0xFF, 0xFF, 0xFF)
-        val DARK_SCRIM = android.graphics.Color.argb(0x80, 0x1B, 0x1B, 0x1B)
+    companion object {
+        const val EXTRA_OPEN_ITEM = "com.pkos.app.OPEN_ITEM"
+        fun openItemIntent(context: android.content.Context, id: String) =
+            android.content.Intent(context, MainActivity::class.java)
+                .putExtra(EXTRA_OPEN_ITEM, id)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+        private val LIGHT_SCRIM = android.graphics.Color.argb(0xE6, 0xFF, 0xFF, 0xFF)
+        private val DARK_SCRIM = android.graphics.Color.argb(0x80, 0x1B, 0x1B, 0x1B)
     }
 }

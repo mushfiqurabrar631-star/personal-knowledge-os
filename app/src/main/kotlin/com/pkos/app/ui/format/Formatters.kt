@@ -39,7 +39,7 @@ object Formatters {
         ContentType.IDEA -> Icons.Outlined.Lightbulb
         ContentType.NOTE -> Icons.Outlined.EditNote
         ContentType.DOCUMENT -> Icons.Outlined.Description
-        ContentType.SCREENSHOT -> Icons.Outlined.Image
+        ContentType.SCREENSHOT, ContentType.IMAGE -> Icons.Outlined.Image
         ContentType.MESSAGE -> Icons.Outlined.ChatBubbleOutline
         ContentType.TOOL -> Icons.Outlined.Handyman
         ContentType.OTHER, null -> Icons.AutoMirrored.Outlined.StickyNote2

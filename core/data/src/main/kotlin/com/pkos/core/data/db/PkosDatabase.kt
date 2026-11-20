@@ -1,10 +1,13 @@
 package com.pkos.core.data.db
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.pkos.core.data.db.dao.AttachmentDao
 import com.pkos.core.data.db.dao.CaptureSourceDao
+import com.pkos.core.data.db.dao.ProcessingJobDao
 import com.pkos.core.data.db.dao.CategoryDao
 import com.pkos.core.data.db.dao.CollectionDao
 import com.pkos.core.data.db.dao.ItemVersionDao
@@ -41,8 +44,9 @@ import com.pkos.core.data.db.entity.TopicEntity
         NotionWriteIntentEntity::class, BackupSnapshotEntity::class, CollectionEntity::class,
         CollectionItemEntity::class, ItemVersionEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 abstract class PkosDatabase : RoomDatabase() {
     abstract fun knowledgeDao(): KnowledgeDao
@@ -53,12 +57,14 @@ abstract class PkosDatabase : RoomDatabase() {
     abstract fun syncDao(): SyncDao
     abstract fun collectionDao(): CollectionDao
     abstract fun itemVersionDao(): ItemVersionDao
+    abstract fun attachmentDao(): AttachmentDao
+    abstract fun processingJobDao(): ProcessingJobDao
 
     companion object {
         const val FILE_NAME = "pkos.db"
 
-        fun create(context: Context): PkosDatabase =
-            Room.databaseBuilder(context.applicationContext, PkosDatabase::class.java, FILE_NAME)
+        fun create(context: Context, name: String = FILE_NAME): PkosDatabase =
+            Room.databaseBuilder(context.applicationContext, PkosDatabase::class.java, name)
                 // No destructive fallback: losing data is a release blocker (spec 13.3).
                 .build()
 

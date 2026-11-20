@@ -31,6 +31,7 @@ data class KnowledgeItemDetail(
     val tags: List<TagEntity>,
     val sources: List<CaptureSourceEntity>,
     val versions: List<ItemVersionEntity>,
+    val attachments: List<com.pkos.core.data.db.entity.AttachmentEntity> = emptyList(),
 )
 
 class KnowledgeRepository(private val db: PkosDatabase, private val clock: () -> Long = System::currentTimeMillis) {
@@ -62,9 +63,15 @@ class KnowledgeRepository(private val db: PkosDatabase, private val clock: () ->
             item.topicId?.let { db.topicDao().observe(it) } ?: flowOf(null),
             db.tagDao().observeForItem(id),
             db.captureSourceDao().observeForItem(id),
-            db.itemVersionDao().observeForItem(id),
-        ) { category, topic, tags, sources, versions -> KnowledgeItemDetail(item, category, topic, tags, sources, versions) }
+            combine(db.itemVersionDao().observeForItem(id), db.attachmentDao().observeForItem(id)) { v, a -> v to a },
+        ) { category, topic, tags, sources, (versions, attachments) ->
+            KnowledgeItemDetail(item, category, topic, tags, sources, versions, attachments)
+        }
     }
+
+    /** Owner edits always win over later AI processing (spec 6.2). */
+    suspend fun setPinned(id: String, pinned: Boolean) = dao.setPinned(id, pinned, clock())
+    suspend fun setNote(id: String, note: String?) = dao.setNote(id, note?.trim()?.takeIf { it.isNotEmpty() }, clock())
 
     suspend fun markOpened(id: String) = dao.markOpened(id, clock())
 

@@ -31,12 +31,13 @@ class InMemorySettings(initial: AppSettings = AppSettings()) : SettingsRepositor
     override suspend fun setThemeMode(mode: ThemeMode) { state.value = state.value.copy(themeMode = mode) }
     override suspend fun setCloudAiEnabled(enabled: Boolean) { state.value = state.value.copy(cloudAiEnabled = enabled) }
     override suspend fun setLocalOnlyByDefault(enabled: Boolean) { state.value = state.value.copy(localOnlyByDefault = enabled) }
+    override suspend fun setFloatingCaptureEnabled(enabled: Boolean) { state.value = state.value.copy(floatingCaptureEnabled = enabled) }
 }
 
 /** Real repositories over a real (in-memory) Room database. */
 fun testContainer(settings: InMemorySettings = InMemorySettings(AppSettings(onboardingCompleted = true))): AppContainer {
     val context = ApplicationProvider.getApplicationContext<Context>()
-    val container = AppContainer(context, PkosDatabase.inMemory(context), settings)
+    val container = AppContainer(context, PkosDatabase.inMemory(context), settings, freeBytes = { Long.MAX_VALUE })
     runBlocking { container.categories.ensureStarterTaxonomy() }
     return container
 }

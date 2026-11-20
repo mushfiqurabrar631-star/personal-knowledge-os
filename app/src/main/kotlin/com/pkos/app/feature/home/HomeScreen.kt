@@ -63,7 +63,6 @@ import com.pkos.app.ui.components.KnowledgeRow
 import com.pkos.app.ui.components.LoadingState
 import com.pkos.app.ui.components.NavigationRowCard
 import com.pkos.app.ui.components.SectionHeader
-import com.pkos.app.ui.components.StagedPill
 import com.pkos.app.ui.components.StatTile
 import com.pkos.app.ui.components.toneOf
 import com.pkos.app.ui.format.Formatters
@@ -253,8 +252,6 @@ private fun CaptureCard(onCapture: () -> Unit) {
                     Icon(Icons.Outlined.IosShare, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(Spacing.m))
                     Text(stringResource(R.string.home_capture_share_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    Spacer(Modifier.width(Spacing.s))
-                    StagedPill("M2")
                 }
             }
         }

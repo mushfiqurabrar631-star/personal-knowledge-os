@@ -25,7 +25,7 @@ import com.pkos.core.data.model.SyncState
     tableName = "knowledge_items",
     indices = [
         Index("created_at"), Index("updated_at"), Index("processing_state"), Index("sync_state"),
-        Index("category_id"), Index("topic_id"), Index("deleted_at"),
+        Index("category_id"), Index("topic_id"), Index("deleted_at"), Index("content_hash"), Index("source_url"),
     ],
 )
 data class KnowledgeItemEntity(
@@ -57,6 +57,10 @@ data class KnowledgeItemEntity(
     @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
     @ColumnInfo(name = "user_edited") val userEdited: Boolean = false,
     @ColumnInfo(name = "last_opened_at") val lastOpenedAt: Long? = null,
+    /** SHA-256 over normalized text + attachment hashes (v2). Used for duplicate suggestions only. */
+    @ColumnInfo(name = "content_hash") val contentHash: String? = null,
+    /** Set when an earlier item looks identical. Both are kept (spec 11: never discard a capture). */
+    @ColumnInfo(name = "duplicate_of_id") val duplicateOfId: String? = null,
 )
 
 @Entity(tableName = "categories", indices = [Index("parent_id"), Index(value = ["name"])])

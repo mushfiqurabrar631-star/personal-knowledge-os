@@ -82,7 +82,7 @@
     <string name="capture_file">ফাইল</string>
     <string name="capture_quick_note">দ্রুত নোট</string>
     <string name="capture_paste">পেস্ট করুন</string>
-    <string name="capture_staged_note">সেভ করার সুবিধা পরের আপডেটে (M2) চালু হবে। এখন বোতামগুলো বন্ধ রাখা হয়েছে যাতে কিছু সেভ হয়েছে বলে ভুল না হয়।</string>
+    <string name="capture_staged_note">PKOS অ্যাপ বন্ধ থাকলেও Share মেনু থেকে সেভ হয়।</string>
     <string name="capture_share_tip">টিপ: ফেসবুক, ইউটিউব বা Chrome-এর Share মেনুতে PKOS বেছে নিলেই হবে।</string>
 
     <!-- Inbox -->
@@ -222,4 +222,54 @@
         <item quantity="one">%1$d টি ফলাফল</item>
         <item quantity="other">%1$d টি ফলাফল</item>
     </plurals>
+
+    <!-- M2: capture -->
+    <string name="capture_saving">সেভ হচ্ছে…</string>
+    <string name="capture_saved_title">ইনবক্সে সেভ হয়েছে</string>
+    <string name="capture_saved_body">ফোনে সেভ হয়েছে। পেছনে নিজে থেকেই সাজানো হবে।</string>
+    <string name="capture_saved_duplicate">ফোনে সেভ হয়েছে। আগে প্রায় একই জিনিস সেভ করা আছে—দুটোই রাখা হলো, পরে মিলিয়ে নিতে পারবেন।</string>
+    <string name="capture_failed_title">সেভ হয়নি</string>
+    <string name="capture_fail_empty">শেয়ার করা জিনিসে সেভ করার মতো কিছু পাওয়া যায়নি।</string>
+    <string name="capture_fail_unreadable">ফাইলটি পড়া যায়নি। যে অ্যাপ থেকে শেয়ার করেছেন সেখান থেকে আবার চেষ্টা করুন।</string>
+    <string name="capture_fail_too_large">ফাইলটি অনেক বড় (সর্বোচ্চ ২০০ MB)।</string>
+    <string name="capture_fail_storage">ফোনে জায়গা কম। কিছু জায়গা খালি করে আবার চেষ্টা করুন—আগের কিছু মোছা হয়নি।</string>
+    <string name="capture_fail_database">ফোনের ডাটাবেসে লেখা যায়নি। আবার চেষ্টা করুন।</string>
+    <string name="capture_add_note">নোট যোগ করুন</string>
+    <string name="capture_note_hint">ঐচ্ছিক নোট</string>
+    <string name="capture_pin">পিন করুন</string>
+    <string name="capture_pinned">পিন করা হয়েছে</string>
+    <string name="capture_open">খুলুন</string>
+    <string name="capture_done">ঠিক আছে</string>
+    <string name="capture_save_note">নোট সেভ</string>
+    <string name="capture_dialog_link">লিংক সেভ করুন</string>
+    <string name="capture_dialog_text">লেখা সেভ করুন</string>
+    <string name="capture_dialog_note">দ্রুত নোট</string>
+    <string name="capture_dialog_link_hint">https://…</string>
+    <string name="capture_dialog_text_hint">এখানে লিখুন বা পেস্ট করুন</string>
+    <string name="capture_dialog_save">সেভ করুন</string>
+    <string name="capture_dialog_cancel">বাতিল</string>
+    <string name="capture_privacy_note">শুধু আপনি যা পাঠান সেটাই পড়া হয়—অন্য অ্যাপ বা ক্লিপবোর্ড নিজে থেকে পড়া হয় না।</string>
+
+    <!-- M2: floating button -->
+    <string name="floating_title">ভাসমান সেভ বোতাম</string>
+    <string name="floating_sub">যেকোনো অ্যাপের উপরে ছোট একটা বোতাম; চাপলে দ্রুত সেভ করার মেনু খুলবে</string>
+    <string name="floating_permission_title">অন্য অ্যাপের উপরে দেখানোর অনুমতি</string>
+    <string name="floating_permission_body">ভাসমান বোতামটি অন্য অ্যাপের উপরে দেখাতে Android-এর “Display over other apps” অনুমতি লাগে। এতে PKOS অন্য অ্যাপের লেখা পড়তে পারে না—শুধু বোতামটা দেখাতে পারে। পরের স্ক্রিনে PKOS চালু করে ফিরে আসুন।</string>
+    <string name="floating_permission_open">অনুমতির পেজ খুলুন</string>
+    <string name="floating_permission_denied">অনুমতি দেওয়া হয়নি, তাই ভাসমান বোতাম বন্ধ থাকল। Share মেনু দিয়ে সেভ আগের মতোই চলবে।</string>
+    <string name="floating_notification_channel">ভাসমান বোতাম</string>
+    <string name="floating_notification_text">ভাসমান সেভ বোতাম চালু আছে</string>
+    <string name="floating_notification_stop">বন্ধ করুন</string>
+    <string name="floating_bubble_cd">PKOS-এ সেভ করুন</string>
+
+    <!-- M2: item detail -->
+    <string name="item_section_files">ফাইল</string>
+    <string name="item_section_note">আমার নোট</string>
+    <string name="item_pin">পিন</string>
+    <string name="item_unpin">পিন সরান</string>
+    <string name="item_duplicate_hint">আগের একটি আইটেমের মতো দেখাচ্ছে—দুটোই রাখা হয়েছে।</string>
+    <string name="item_open_original">মূল লিংক খুলুন</string>
+    <string name="share_target_label">PKOS-এ সেভ</string>
+    <string name="action_ok">ঠিক আছে</string>
+    <string name="settings_section_capture">সেভ করা</string>
 </resources>

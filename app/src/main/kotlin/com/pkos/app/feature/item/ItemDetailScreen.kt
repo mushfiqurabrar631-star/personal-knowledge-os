@@ -1,5 +1,6 @@
 package com.pkos.app.feature.item
 
+import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -25,6 +26,23 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -62,6 +80,9 @@ class ItemDetailViewModel(private val container: AppContainer, private val id: S
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ItemUiState.Loading)
 
     fun markOpened() { viewModelScope.launch { container.knowledge.markOpened(id) } }
+    fun setPinned(on: Boolean) { viewModelScope.launch { container.knowledge.setPinned(id, on) } }
+    fun saveNote(note: String) { viewModelScope.launch { container.knowledge.setNote(id, note) } }
+    fun fileFor(a: com.pkos.core.data.db.entity.AttachmentEntity) = container.attachments.resolve(a.localPath)
 }
 
 @Composable
@@ -69,17 +90,52 @@ fun ItemDetailRoute(id: String, onBack: () -> Unit) {
     val vm = pkosViewModel(key = "item-$id") { ItemDetailViewModel(it, id) }
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(id) { vm.markOpened() }
-    ItemDetailScreen(state, onBack)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    ItemDetailScreen(
+        state, onBack,
+        actions = ItemActions(
+            onPin = vm::setPinned,
+            onSaveNote = vm::saveNote,
+            onOpenUrl = { url -> runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri())) } },
+            onOpenFile = { a -> openAttachment(context, vm.fileFor(a), a.mimeType) },
+        ),
+    )
+}
+
+data class ItemActions(
+    val onPin: (Boolean) -> Unit = {},
+    val onSaveNote: (String) -> Unit = {},
+    val onOpenUrl: (String) -> Unit = {},
+    val onOpenFile: (com.pkos.core.data.db.entity.AttachmentEntity) -> Unit = {},
+)
+
+/** Opens a local attachment via the app's FileProvider with a read-only grant; never exposes a file:// URI. */
+private fun openAttachment(context: android.content.Context, file: java.io.File, mime: String?) {
+    val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)
+    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(uri, mime ?: "*/*")
+        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    runCatching { context.startActivity(android.content.Intent.createChooser(intent, null)) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit) {
+fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit, actions: ItemActions = ItemActions()) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {},
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.action_back)) } },
+                actions = {
+                    val pinned = (state as? ItemUiState.Ready)?.detail?.item?.pinned
+                    if (pinned != null) {
+                        IconButton(onClick = { actions.onPin(!pinned) }, modifier = Modifier.testTag("item_pin")) {
+                            Icon(
+                                if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                stringResource(if (pinned) R.string.item_unpin else R.string.item_pin),
+                            )
+                        }
+                    }
+                },
             )
         },
     ) { padding ->
@@ -109,6 +165,48 @@ fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit) {
                             Text(stringResource(R.string.item_review_reason, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                    if (item.duplicateOfId != null) {
+                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().testTag("item_duplicate")) {
+                            Row(Modifier.padding(Spacing.l), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.ContentCopy, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Spacer(Modifier.width(Spacing.m))
+                                Text(stringResource(R.string.item_duplicate_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            }
+                        }
+                    }
+                    Section(stringResource(R.string.item_section_note)) {
+                        var note by rememberSaveable(item.id, item.userNote) { mutableStateOf(item.userNote.orEmpty()) }
+                        OutlinedTextField(
+                            note, { note = it },
+                            placeholder = { Text(stringResource(R.string.capture_note_hint)) },
+                            modifier = Modifier.fillMaxWidth().testTag("item_note"),
+                        )
+                        if (note.trim() != item.userNote.orEmpty()) {
+                            FilledTonalButton(onClick = { actions.onSaveNote(note) }, modifier = Modifier.testTag("item_note_save")) { Text(stringResource(R.string.capture_save_note)) }
+                        }
+                    }
+                    if (d.attachments.isNotEmpty()) {
+                        Section(stringResource(R.string.item_section_files)) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            d.attachments.forEach { a ->
+                                Surface(
+                                    onClick = { actions.onOpenFile(a) },
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    modifier = Modifier.fillMaxWidth().testTag("attachment"),
+                                ) {
+                                    Row(Modifier.padding(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(if (a.mimeType?.startsWith("image/") == true) Icons.Outlined.Image else Icons.Outlined.Description, null)
+                                        Spacer(Modifier.width(Spacing.m))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(a.filename ?: a.sha256.take(12), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(Formatters.bytes(context, a.sizeBytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     item.summary?.takeIf { it.isNotBlank() }?.let { Section(stringResource(R.string.item_section_summary)) { Body(it) } }
                     Section(stringResource(R.string.item_section_organized)) {
                         val categoryName = d.category?.let { c -> systemCategoryLabel(c.id)?.let { stringResource(it) } ?: c.name }
@@ -128,7 +226,12 @@ fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit) {
                     item.rawText?.takeIf { it.isNotBlank() }?.let { Section(stringResource(R.string.item_section_original)) { SelectionContainer { Body(it) } } }
                     if (item.sourceUrl != null || d.sources.isNotEmpty()) {
                         Section(stringResource(R.string.item_section_source)) {
-                            item.sourceUrl?.let { SelectionContainer { Body(it) } }
+                            item.sourceUrl?.let { url ->
+                                SelectionContainer { Body(url) }
+                                OutlinedButton(onClick = { actions.onOpenUrl(url) }, modifier = Modifier.testTag("item_open_original")) {
+                                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, null); Spacer(Modifier.width(Spacing.s)); Text(stringResource(R.string.item_open_original))
+                                }
+                            }
                             d.sources.forEach { s ->
                                 Body(listOfNotNull(s.captureMethod.name.lowercase().replace('_', ' '), s.sourceApp, Formatters.dateTime(s.capturedAt)).joinToString(" · "))
                             }

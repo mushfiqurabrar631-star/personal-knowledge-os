@@ -1,10 +1,12 @@
 package com.pkos.app
 
 import android.content.Context
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -88,15 +90,53 @@ class AppFlowTest {
         waitFor(hasTestTag("search_field"))
     }
 
-    @Test fun captureSheetListsEverySourceAndSavesNothingYet() {
-        val c = startHome()
+    @Test fun captureSheetListsEverySourceEnabled() {
+        startHome()
         rule.onNodeWithTag("tab_capture").performClick()
         waitFor(hasTestTag("capture_sheet"))
         listOf("link", "text", "image", "file", "note", "paste").forEach {
-            rule.onNodeWithTag("capture_option_$it", useUnmergedTree = true).assertIsNotEnabled()
+            rule.onNodeWithTag("capture_option_$it", useUnmergedTree = true).assertIsEnabled()
         }
-        rule.onNodeWithText(s(R.string.capture_staged_note), useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun quickNoteFromSheetIsSavedLocallyAndConfirmed() {
+        val c = startHome()
+        rule.onNodeWithTag("tab_capture").performClick()
+        waitFor(hasTestTag("capture_sheet"))
+        rule.onNodeWithTag("capture_option_note").performClick()
+        waitFor(hasTestTag("capture_text_input"))
+        rule.onNodeWithTag("capture_text_input").performTextInput("দুধ কিনতে হবে")
+        rule.onNodeWithTag("capture_text_save").performClick()
+        waitFor(hasText(s(R.string.capture_saved_body), substring = true))
+        val counts = runBlocking { c.knowledge.counts().first() }
+        assertEquals(1, counts.saved)
+        assertEquals(1, counts.inbox)
+    }
+
+    @Test fun pasteWithEmptyClipboardFailsHonestly() {
+        val c = startHome()
+        rule.onNodeWithTag("tab_capture").performClick()
+        waitFor(hasTestTag("capture_sheet"))
+        rule.onNodeWithTag("capture_option_paste").performClick()
+        waitFor(hasText(s(R.string.capture_fail_empty), substring = true))
         assertEquals(0, runBlocking { c.knowledge.counts().first().saved })
+    }
+
+    @Test fun itemDetailPinAndNoteArePersisted() {
+        val c = testContainer()
+        val id = runBlocking {
+            (c.capture(com.pkos.core.data.capture.CaptureRequest(com.pkos.core.data.model.CaptureMethod.SHARE, text = "https://example.com/guide")) as com.pkos.core.data.capture.CaptureResult.Saved).itemId
+        }
+        startHome(c)
+        rule.onNodeWithTag("tab_inbox").performClick()
+        waitFor(hasText("example.com", substring = true))
+        rule.onAllNodes(hasText("example.com", substring = true), useUnmergedTree = true)[0].performClick()
+        waitFor(hasTestTag("item_pin"))
+        rule.onNodeWithTag("item_pin").performClick()
+        rule.onNodeWithTag("item_note").performScrollTo().performTextInput("পরে পড়ব")
+        rule.onNodeWithTag("item_note_save").performScrollTo().performClick()
+        rule.waitUntil(5_000) { runBlocking { c.database.knowledgeDao().get(id)?.let { it.pinned && it.userNote == "পরে পড়ব" } == true } }
+        rule.onNodeWithTag("item_open_original").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun emptyHomeShowsHonestEmptyAndLocalOnlyStates() {

@@ -74,7 +74,7 @@
     <string name="capture_file">File</string>
     <string name="capture_quick_note">Quick note</string>
     <string name="capture_paste">Paste</string>
-    <string name="capture_staged_note">Saving arrives in the next update (M2). These buttons are off for now so nothing looks saved when it isn’t.</string>
+    <string name="capture_staged_note">Saving from the Share menu works even when PKOS is closed.</string>
     <string name="capture_share_tip">Tip: choose PKOS in the Share menu of Facebook, YouTube or Chrome.</string>
 
     <string name="inbox_title">Inbox</string>
@@ -206,4 +206,51 @@
         <item quantity="one">%1$d result</item>
         <item quantity="other">%1$d results</item>
     </plurals>
+
+    <string name="capture_saving">Saving…</string>
+    <string name="capture_saved_title">Saved to Inbox</string>
+    <string name="capture_saved_body">Saved on this phone. Organizing in the background.</string>
+    <string name="capture_saved_duplicate">Saved on this phone. Something very similar was saved before — both are kept so you can compare later.</string>
+    <string name="capture_failed_title">Not saved</string>
+    <string name="capture_fail_empty">There was nothing to save in what was shared.</string>
+    <string name="capture_fail_unreadable">The file couldn’t be read. Try sharing it again from the original app.</string>
+    <string name="capture_fail_too_large">The file is too large (max 200 MB).</string>
+    <string name="capture_fail_storage">Your phone is low on storage. Free some space and try again — nothing was deleted.</string>
+    <string name="capture_fail_database">Couldn’t write to the on-device database. Please try again.</string>
+    <string name="capture_add_note">Add note</string>
+    <string name="capture_note_hint">Optional note</string>
+    <string name="capture_pin">Pin</string>
+    <string name="capture_pinned">Pinned</string>
+    <string name="capture_open">Open</string>
+    <string name="capture_done">Done</string>
+    <string name="capture_save_note">Save note</string>
+    <string name="capture_dialog_link">Save a link</string>
+    <string name="capture_dialog_text">Save text</string>
+    <string name="capture_dialog_note">Quick note</string>
+    <string name="capture_dialog_link_hint">https://…</string>
+    <string name="capture_dialog_text_hint">Type or paste here</string>
+    <string name="capture_dialog_save">Save</string>
+    <string name="capture_dialog_cancel">Cancel</string>
+    <string name="capture_privacy_note">Only what you send is read — other apps and the clipboard are never read on their own.</string>
+
+    <string name="floating_title">Floating save button</string>
+    <string name="floating_sub">A small button over any app; tap it for quick save options</string>
+    <string name="floating_permission_title">Permission to display over other apps</string>
+    <string name="floating_permission_body">The floating button needs Android’s “Display over other apps” permission. It lets PKOS show the button — it does not let PKOS read other apps. On the next screen, turn PKOS on and come back.</string>
+    <string name="floating_permission_open">Open permission page</string>
+    <string name="floating_permission_denied">Permission wasn’t granted, so the floating button stays off. Saving from the Share menu still works.</string>
+    <string name="floating_notification_channel">Floating button</string>
+    <string name="floating_notification_text">Floating save button is on</string>
+    <string name="floating_notification_stop">Turn off</string>
+    <string name="floating_bubble_cd">Save to PKOS</string>
+
+    <string name="item_section_files">Files</string>
+    <string name="item_section_note">My note</string>
+    <string name="item_pin">Pin</string>
+    <string name="item_unpin">Unpin</string>
+    <string name="item_duplicate_hint">Looks like an earlier item — both are kept.</string>
+    <string name="item_open_original">Open original link</string>
+    <string name="share_target_label">Save to PKOS</string>
+    <string name="action_ok">OK</string>
+    <string name="settings_section_capture">Capture</string>
 </resources>

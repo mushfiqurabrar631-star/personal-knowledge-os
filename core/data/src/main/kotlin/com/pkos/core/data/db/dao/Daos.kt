@@ -82,6 +82,28 @@ interface KnowledgeDao {
     @Query("SELECT * FROM knowledge_items WHERE $ALIVE AND $PENDING_SYNC ORDER BY updated_at DESC")
     fun observeSyncPending(): Flow<List<KnowledgeItemEntity>>
 
+    @Query("SELECT * FROM knowledge_items WHERE id = :id")
+    suspend fun get(id: String): KnowledgeItemEntity?
+
+    /** Oldest live item with the same content hash or the same canonical URL (duplicate suggestion). */
+    @Query(
+        """
+        SELECT id FROM knowledge_items WHERE $ALIVE AND id != :excludeId AND (
+          (:hash IS NOT NULL AND content_hash = :hash) OR (:url IS NOT NULL AND source_url = :url))
+        ORDER BY created_at ASC LIMIT 1
+        """,
+    )
+    suspend fun findDuplicate(hash: String?, url: String?, excludeId: String): String?
+
+    @Query("UPDATE knowledge_items SET pinned = :pinned, updated_at = :at WHERE id = :id")
+    suspend fun setPinned(id: String, pinned: Boolean, at: Long)
+
+    @Query("UPDATE knowledge_items SET user_note = :note, updated_at = :at WHERE id = :id")
+    suspend fun setNote(id: String, note: String?, at: Long)
+
+    @Query("SELECT COUNT(*) FROM knowledge_items")
+    suspend fun countAll(): Int
+
     /** Offline keyword search (spec R-08). `pattern` must already be a LIKE pattern with escaped wildcards. */
     @Query(
         """
@@ -204,4 +226,37 @@ interface ItemVersionDao {
 
     @Query("SELECT * FROM item_versions WHERE knowledge_id = :knowledgeId ORDER BY version DESC")
     fun observeForItem(knowledgeId: String): Flow<List<ItemVersionEntity>>
+}
+
+@Dao
+interface AttachmentDao {
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(attachment: com.pkos.core.data.db.entity.AttachmentEntity)
+
+    @Query("SELECT * FROM attachments WHERE knowledge_id = :knowledgeId ORDER BY created_at")
+    fun observeForItem(knowledgeId: String): Flow<List<com.pkos.core.data.db.entity.AttachmentEntity>>
+
+    @Query("SELECT * FROM attachments WHERE knowledge_id = :knowledgeId ORDER BY created_at")
+    suspend fun forItem(knowledgeId: String): List<com.pkos.core.data.db.entity.AttachmentEntity>
+
+    @Query("SELECT COUNT(*) FROM attachments WHERE local_path = :path")
+    suspend fun countByPath(path: String): Int
+
+    @Query("UPDATE attachments SET extraction_status = :status WHERE id = :id")
+    suspend fun setExtractionStatus(id: String, status: com.pkos.core.data.model.ExtractionStatus)
+}
+
+@Dao
+interface ProcessingJobDao {
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(job: com.pkos.core.data.db.entity.ProcessingJobEntity)
+
+    @Query("SELECT * FROM processing_jobs WHERE knowledge_id = :knowledgeId ORDER BY created_at")
+    suspend fun forItem(knowledgeId: String): List<com.pkos.core.data.db.entity.ProcessingJobEntity>
+
+    @Query("SELECT DISTINCT knowledge_id FROM processing_jobs WHERE state IN ('QUEUED','RUNNING','RETRY_SCHEDULED')")
+    suspend fun itemsWithPendingJobs(): List<String>
+
+    @Query("UPDATE processing_jobs SET state = :state, attempts = :attempts, next_run_at = :nextRunAt, last_error_code = :error, updated_at = :at WHERE id = :id")
+    suspend fun update(id: String, state: com.pkos.core.data.model.JobState, attempts: Int, nextRunAt: Long?, error: String?, at: Long)
 }
