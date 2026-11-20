@@ -118,6 +118,7 @@ fun ItemDetailScreen(state: ItemUiState, onBack: () -> Unit) {
                             categoryName?.let { Labeled(stringResource(R.string.item_category), it) }
                             d.topic?.let { Labeled(stringResource(R.string.item_topic), it.name) }
                             if (d.tags.isNotEmpty()) {
+                                Text(stringResource(R.string.item_tags), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                                     d.tags.forEach { t -> AssistChip(onClick = {}, label = { Text(t.name) }) }
                                 }

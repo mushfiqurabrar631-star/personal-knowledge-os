@@ -1,15 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">PKOS</string>
-    <string name="app_full_name">Personal Knowledge OS</string>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name" translatable="false">PKOS</string>
 
     <!-- Common -->
     <string name="action_back">ফিরে যান</string>
-    <string name="action_close">বন্ধ করুন</string>
     <string name="action_retry">আবার চেষ্টা করুন</string>
     <string name="action_dismiss">সরিয়ে দিন</string>
-    <string name="action_open">খুলুন</string>
-    <string name="action_see_all">সব দেখুন</string>
     <string name="loading">লোড হচ্ছে…</string>
     <string name="staged_label">শীঘ্রই · %1$s</string>
     <string name="error_generic_title">কিছু একটা ঠিকমতো হয়নি</string>
@@ -52,14 +48,12 @@
     <string name="home_stat_last_backup">শেষ ব্যাকআপ</string>
     <string name="home_stat_backup_never">এখনো হয়নি</string>
     <string name="home_continue_title">যেখানে থেমেছিলেন</string>
-    <string name="home_recent_topics">সম্প্রতি দেখা টপিক</string>
     <string name="home_empty_title">এখনো কিছু সেভ হয়নি</string>
     <string name="home_empty_body">প্রথম তথ্যটি সেভ করলে এখানে দেখাবে। সবকিছু আগে আপনার ফোনেই থাকবে।</string>
     <string name="home_suggested_title">প্রস্তাবিত কালেকশন</string>
     <string name="home_explore_title">ঘুরে দেখুন</string>
     <string name="home_explore_topics_body">বিষয় অনুযায়ী সাজানো</string>
     <string name="home_explore_ask_body">নিজের সেভ করা তথ্য থেকে উত্তর</string>
-    <string name="home_action_banner">%1$d টি আইটেমে আপনার পদক্ষেপ দরকার</string>
     <string name="home_sync_status_cd">সিঙ্ক ও ব্যাকআপের অবস্থা: %1$s</string>
     <string name="home_settings_cd">সেটিংস খুলুন</string>
     <string name="health_local_only">শুধু ফোনে আছে · ব্যাকআপ চালু নেই</string>
@@ -117,13 +111,12 @@
     <string name="search_start_body">ফোনে সেভ থাকা সব তথ্যে খোঁজে—ইন্টারনেট ছাড়াও কাজ করে।</string>
     <string name="search_no_results_title">“%1$s” পাওয়া যায়নি</string>
     <string name="search_no_results_body">অন্য কোনো শব্দ বা বানানে চেষ্টা করুন।</string>
-    <string name="search_results_count">%1$d টি ফলাফল</string>
     <string name="search_semantic_note">অর্থভিত্তিক খোঁজ পরের ধাপে (M6) আসবে।</string>
 
     <!-- Topics -->
     <string name="topics_title">টপিক</string>
     <string name="topics_subtitle">ক্যাটাগরি → টপিক → সাবটপিক</string>
-    <string name="topics_counts">%1$d আইটেম · %2$d টপিক</string>
+    <string name="topics_counts">আইটেম: %1$d · টপিক: %2$d</string>
     <string name="topics_starter_note">এগুলো শুরুর ক্যাটাগরি—পরে নাম বদলানো, নতুন যোগ এবং আপনার Notion ক্যাটাগরি যুক্ত করা যাবে।</string>
     <string name="cat_education">শিক্ষা ও শেখা</string>
     <string name="cat_technology">প্রযুক্তি ও সফটওয়্যার</string>
@@ -141,7 +134,7 @@
     <string name="ask_intro">আপনার নিজের সেভ করা তথ্য থেকেই উত্তর দেবে, আর প্রতিটি উত্তরের সাথে কোন আইটেম থেকে এসেছে তা দেখাবে। উৎস না থাকলে সেটাও বলবে।</string>
     <string name="ask_not_ready_title">AI এখনো চালু নয়</string>
     <string name="ask_not_ready_body">এর জন্য একটি AI প্রোভাইডার সংযোগ লাগবে। ক্লাউড AI ডিফল্টভাবে বন্ধ থাকে—আপনি নিজে চালু না করলে কোনো তথ্য বাইরে যায় না।</string>
-    <string name="ask_input_hint">যেমন: মার্কেটিং নিয়ে কী কী সেভ করেছি?</string>
+    <string name="ask_input_hint" tools:ignore="Typos">যেমন: মার্কেটিং নিয়ে কী কী সেভ করেছি?</string>
     <string name="ask_open_integrations">সংযোগ দেখুন</string>
 
     <!-- Item detail -->
@@ -221,4 +214,12 @@
     <string name="backup_now">এখনই ব্যাকআপ</string>
     <string name="backup_verify">ব্যাকআপ যাচাই</string>
     <string name="backup_restore">রিস্টোর</string>
+    <plurals name="home_action_banner">
+        <item quantity="one">%1$d টি আইটেমে আপনার পদক্ষেপ দরকার</item>
+        <item quantity="other">%1$d টি আইটেমে আপনার পদক্ষেপ দরকার</item>
+    </plurals>
+    <plurals name="search_results_count">
+        <item quantity="one">%1$d টি ফলাফল</item>
+        <item quantity="other">%1$d টি ফলাফল</item>
+    </plurals>
 </resources>

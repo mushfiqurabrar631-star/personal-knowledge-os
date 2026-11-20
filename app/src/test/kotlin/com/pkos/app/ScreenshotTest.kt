@@ -38,6 +38,9 @@ class ScreenshotTest {
     private fun waitFor(m: SemanticsMatcher) = rule.waitUntil(5_000) { rule.onAllNodes(m, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
     private fun s(id: Int, vararg a: Any) = rule.activity.getString(id, *a)
 
+    private fun waitForCount() = waitFor(androidx.compose.ui.test.hasContentDescription(s(R.string.home_stat_saved) + ": 4"))
+    private fun scrollHomeTo(text: String) = rule.onNodeWithTag("home_list").performScrollToNode(hasText(text))
+
     private fun withItems(): AppContainer = testContainer().also { c -> runBlocking { Fixtures.sample.forEach { c.database.knowledgeDao().insert(it) } } }
 
     private fun home(container: AppContainer = testContainer(), dark: Boolean = false) {
@@ -57,22 +60,24 @@ class ScreenshotTest {
     @Test @Config(qualifiers = "+night") fun s05_homeEmptyDark() { home(dark = true); shot("05_home_empty_dark") }
 
     @Test fun s06_homeWithItems() {
-        home(withItems()); waitFor(hasText("Ai দিয়ে marketing")); shot("06_home_with_items")
+        home(withItems()); waitForCount(); shot("06_home_with_items")
+        scrollHomeTo("RSO meeting screenshot"); shot("06b_home_recent_items")
         rule.onNodeWithTag("home_list").performScrollToNode(hasText(s(R.string.nav_ask_ai))); shot("07_home_scrolled")
     }
 
-    @Test @Config(qualifiers = "+night") fun s08_homeWithItemsDark() { home(withItems(), dark = true); waitFor(hasText("Ai দিয়ে marketing")); shot("08_home_with_items_dark") }
+    @Test @Config(qualifiers = "+night") fun s08_homeWithItemsDark() { home(withItems(), dark = true); waitForCount(); scrollHomeTo("Ai দিয়ে marketing"); shot("08_home_with_items_dark") }
 
     @Test fun s09_captureSheet() { home(); rule.onNodeWithTag("tab_capture").performClick(); waitFor(hasTestTag("capture_sheet")); shot("09_capture_sheet") }
 
     @Test fun s10_inbox() {
         home(withItems()); rule.onNodeWithTag("tab_inbox").performClick(); waitFor(hasText("RSO meeting screenshot")); shot("10_inbox")
+        rule.onNodeWithTag("inbox_filters").performScrollToNode(hasText(s(R.string.inbox_filter_sync_pending)))
         rule.onNodeWithText(s(R.string.inbox_filter_sync_pending)).performClick(); waitFor(hasTestTag("inbox_empty")); shot("11_inbox_empty_filter")
     }
 
     @Test fun s12_search() {
         home(withItems()); rule.onNodeWithTag("tab_search").performClick(); waitFor(hasTestTag("search_field")); shot("12_search_start")
-        rule.onNodeWithTag("search_field").performTextInput("marketing"); waitFor(hasTestTag("search_results")); shot("13_search_results")
+        rule.onNodeWithTag("search_field").performTextInput("marketing"); waitFor(hasText("Ai দিয়ে marketing")); shot("13_search_results")
     }
 
     @Test fun s14_topics() {
@@ -86,7 +91,7 @@ class ScreenshotTest {
     }
 
     @Test fun s16_itemDetail() {
-        home(withItems()); waitFor(hasText("OpenStax free textbooks"))
+        home(withItems()); waitForCount(); scrollHomeTo("OpenStax free textbooks")
         rule.onNodeWithText("OpenStax free textbooks").performClick(); waitFor(hasTestTag("item_detail")); shot("16_item_detail")
     }
 
@@ -103,12 +108,12 @@ class ScreenshotTest {
         rule.onNodeWithText(s(R.string.settings_backup_sync)).performClick(); waitFor(hasTestTag("backup_status")); shot("20_backup_sync")
     }
 
-    @Test fun s21_largeFont() { RuntimeEnvironment.setFontScale(1.6f); home(withItems()); waitFor(hasText("Ai দিয়ে marketing")); shot("21_home_large_font") }
+    @Test fun s21_largeFont() { RuntimeEnvironment.setFontScale(1.6f); home(withItems()); waitForCount(); shot("21_home_large_font") }
 
-    @Test @Config(qualifiers = "en-w400dp-h860dp-xxhdpi") fun s22_english() { home(withItems()); waitFor(hasText("Ai দিয়ে marketing")); shot("22_home_english") }
+    @Test @Config(qualifiers = "en-w400dp-h860dp-xxhdpi") fun s22_english() { home(withItems()); waitForCount(); shot("22_home_english") }
 
     @Test fun s23_smallPhone() {
-        RuntimeEnvironment.setQualifiers("w320dp-h640dp-xhdpi"); home(withItems()); waitFor(hasText("Ai দিয়ে marketing")); shot("23_home_small_phone")
+        RuntimeEnvironment.setQualifiers("w320dp-h640dp-xhdpi"); home(withItems()); waitForCount(); shot("23_home_small_phone")
     }
 
 }

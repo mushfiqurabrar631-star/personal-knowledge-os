@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectableGroup
@@ -114,9 +113,9 @@ fun PkosApp(startWithOnboarding: Boolean, onOnboardingFinished: () -> Unit, navC
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(Modifier.selectableGroup().testTag("bottom_bar")) {
-                    leftTabs.forEach { TabItem(it, destination?.hierarchy?.any { d -> d.hasRoute(it.routeClass) } == true, badge = if (it.routeClass == InboxRoute::class) counts?.inbox else null) { inboxFilter = InboxFilter.ALL; openTab(it.route) } }
+                    leftTabs.forEach { TabItem(it, destination.hierarchy.any { d -> d.hasRoute(it.routeClass) }, badge = if (it.routeClass == InboxRoute::class) counts?.inbox else null) { inboxFilter = InboxFilter.ALL; openTab(it.route) } }
                     CaptureButton { showCapture = true }
-                    rightTabs.forEach { TabItem(it, destination?.hierarchy?.any { d -> d.hasRoute(it.routeClass) } == true, badge = null) { openTab(it.route) } }
+                    rightTabs.forEach { TabItem(it, destination.hierarchy.any { d -> d.hasRoute(it.routeClass) }, badge = null) { openTab(it.route) } }
                 }
             }
         },
@@ -191,7 +190,7 @@ private fun RowScope.TabItem(tab: Tab, selected: Boolean, badge: Int?, onClick: 
 @Composable
 private fun RowScope.CaptureButton(onClick: () -> Unit) {
     val label = stringResource(R.string.nav_capture)
-    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+    Box(Modifier.weight(1f).align(Alignment.CenterVertically), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Surface(
                 onClick = onClick,

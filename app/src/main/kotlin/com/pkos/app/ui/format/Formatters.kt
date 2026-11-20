@@ -2,7 +2,7 @@ package com.pkos.app.ui.format
 
 import android.text.format.Formatter
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Article
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.EditNote
@@ -12,7 +12,7 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.OndemandVideo
 import androidx.compose.material.icons.outlined.School
-import androidx.compose.material.icons.outlined.StickyNote2
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.pkos.core.data.model.ContentType
 import java.time.Instant
@@ -32,7 +32,7 @@ object Formatters {
     fun host(url: String?): String? = url?.let { runCatching { java.net.URI(it).host?.removePrefix("www.") }.getOrNull() }
 
     fun icon(type: ContentType?): ImageVector = when (type) {
-        ContentType.ARTICLE -> Icons.Outlined.Article
+        ContentType.ARTICLE -> Icons.AutoMirrored.Outlined.Article
         ContentType.VIDEO -> Icons.Outlined.OndemandVideo
         ContentType.WEBSITE -> Icons.Outlined.Language
         ContentType.TUTORIAL -> Icons.Outlined.School
@@ -42,6 +42,6 @@ object Formatters {
         ContentType.SCREENSHOT -> Icons.Outlined.Image
         ContentType.MESSAGE -> Icons.Outlined.ChatBubbleOutline
         ContentType.TOOL -> Icons.Outlined.Handyman
-        ContentType.OTHER, null -> Icons.Outlined.StickyNote2
+        ContentType.OTHER, null -> Icons.AutoMirrored.Outlined.StickyNote2
     }
 }

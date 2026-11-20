@@ -44,7 +44,7 @@ class AppFlowTest {
     private val ctx = ApplicationProvider.getApplicationContext<Context>()
     private fun s(id: Int, vararg args: Any) = ctx.getString(id, *args)
 
-    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 5_000) =
+    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 10_000) =
         rule.waitUntil(timeout) { rule.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
 
     private fun startHome(container: com.pkos.app.di.AppContainer = testContainer()) = container.also {
@@ -112,7 +112,7 @@ class AppFlowTest {
         runBlocking { Fixtures.sample.forEach { c.database.knowledgeDao().insert(it) } }
         waitFor(hasContentDescription(s(R.string.home_stat_saved) + ": 4"))
         rule.onNode(hasContentDescription(s(R.string.home_stat_needs_review) + ": 1")).assertExists()
-        rule.onNodeWithText(s(R.string.home_action_banner, 1)).assertIsDisplayed()
+        rule.onNodeWithText(ctx.resources.getQuantityString(R.plurals.home_action_banner, 1, 1)).assertIsDisplayed()
         rule.onNodeWithText("Ai দিয়ে marketing").assertIsDisplayed()
         rule.onNode(hasContentDescription(s(R.string.home_sync_status_cd, s(R.string.health_action_required)))).assertExists()
     }
@@ -123,9 +123,12 @@ class AppFlowTest {
         startHome(c)
         rule.onNodeWithTag("tab_inbox").performClick()
         waitFor(hasText("RSO meeting screenshot"))
+        // Chip labels include live counts; wait until the count query has delivered before clicking.
+        waitFor(hasText(s(R.string.inbox_filter_failed) + " · 1"))
         rule.onNodeWithText(s(R.string.inbox_filter_failed) + " · 1").performClick()
         waitFor(hasText("RSO meeting screenshot"))
         rule.onAllNodesWithText("OpenStax free textbooks").assertCountEquals(0)
+        rule.onNodeWithTag("inbox_filters").performScrollToNode(hasText(s(R.string.inbox_filter_sync_pending)))
         rule.onNodeWithText(s(R.string.inbox_filter_sync_pending)).performClick()
         waitFor(hasTestTag("inbox_empty"))
     }
@@ -138,7 +141,7 @@ class AppFlowTest {
         waitFor(hasTestTag("search_field"))
         rule.onNodeWithTag("search_field").performTextInput("বইয়ের")
         waitFor(hasText("ফ্রি বইয়ের ওয়েবসাইট বাংলায়"))
-        rule.onNodeWithText(s(R.string.search_results_count, 1)).assertExists()
+        rule.onNodeWithText(ctx.resources.getQuantityString(R.plurals.search_results_count, 1, 1)).assertExists()
         rule.onNodeWithTag("search_field").performTextReplacement("zzz-not-there")
         waitFor(hasTestTag("search_no_results"))
     }

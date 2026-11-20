@@ -16,7 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ManageSearch
+import androidx.compose.material.icons.automirrored.outlined.ManageSearch
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -123,11 +124,15 @@ fun SearchScreen(query: String, results: SearchResults, onQuery: (String) -> Uni
             }
             when {
                 query.isBlank() -> EmptyState(
-                    Icons.Outlined.ManageSearch, stringResource(R.string.search_start_title),
+                    Icons.AutoMirrored.Outlined.ManageSearch, stringResource(R.string.search_start_title),
                     stringResource(R.string.search_start_body) + "\n" + stringResource(R.string.search_semantic_note),
                     Modifier.padding(top = 32.dp),
                 )
-                results.query == query.trim() && results.items.isEmpty() -> EmptyState(
+                // Debounce in flight: show progress instead of a stale "0 results".
+                results.query != query.trim() -> androidx.compose.material3.LinearProgressIndicator(
+                    Modifier.padding(horizontal = Spacing.screen).fillMaxWidth().testTag("search_progress"),
+                )
+                results.items.isEmpty() -> EmptyState(
                     Icons.Outlined.SearchOff, stringResource(R.string.search_no_results_title, query.trim()),
                     stringResource(R.string.search_no_results_body), Modifier.padding(top = 32.dp).testTag("search_no_results"),
                 )
@@ -138,7 +143,7 @@ fun SearchScreen(query: String, results: SearchResults, onQuery: (String) -> Uni
                 ) {
                     item {
                         Text(
-                            stringResource(R.string.search_results_count, results.items.size),
+                            pluralStringResource(R.plurals.search_results_count, results.items.size, results.items.size),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

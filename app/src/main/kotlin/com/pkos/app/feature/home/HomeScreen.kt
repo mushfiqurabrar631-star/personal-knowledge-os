@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -225,7 +226,7 @@ private fun ActionBanner(count: Int, onClick: () -> Unit) {
         Row(Modifier.padding(Spacing.l), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.ErrorOutline, null)
             Spacer(Modifier.width(Spacing.m))
-            Text(stringResource(R.string.home_action_banner, count), style = MaterialTheme.typography.titleSmall)
+            Text(pluralStringResource(R.plurals.home_action_banner, count, count), style = MaterialTheme.typography.titleSmall)
         }
     }
 }

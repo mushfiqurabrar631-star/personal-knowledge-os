@@ -58,6 +58,7 @@ android {
             all {
                 it.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
                 it.systemProperty("pkos.screenshots.dir", screenshotsDir)
+                it.maxHeapSize = "2g"
             }
         }
     }

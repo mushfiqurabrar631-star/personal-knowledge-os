@@ -12,7 +12,7 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.pkos.app.R
 import com.pkos.core.data.db.dao.KnowledgeCounts
@@ -31,7 +31,7 @@ enum class ItemStatusUi(@StringRes val label: Int, val icon: ImageVector, val to
     NEEDS_REVIEW(R.string.status_needs_review, Icons.Outlined.RateReview, ToneKind.WARNING),
     BACKING_UP(R.string.status_backing_up, Icons.Outlined.CloudUpload, ToneKind.INFO),
     BACKED_UP(R.string.status_backed_up, Icons.Outlined.CloudDone, ToneKind.SUCCESS),
-    SENDING_TO_NOTION(R.string.status_sending_to_notion, Icons.Outlined.Send, ToneKind.INFO),
+    SENDING_TO_NOTION(R.string.status_sending_to_notion, Icons.AutoMirrored.Outlined.Send, ToneKind.INFO),
     IN_NOTION(R.string.status_in_notion, Icons.Outlined.DoneAll, ToneKind.SUCCESS),
     SYNCED(R.string.status_synced, Icons.Outlined.DoneAll, ToneKind.SUCCESS),
     RETRYING(R.string.status_retrying, Icons.Outlined.Refresh, ToneKind.WARNING),

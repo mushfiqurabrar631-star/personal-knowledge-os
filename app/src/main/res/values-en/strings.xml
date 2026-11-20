@@ -1,11 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="action_back">Back</string>
-    <string name="action_close">Close</string>
     <string name="action_retry">Try again</string>
     <string name="action_dismiss">Dismiss</string>
-    <string name="action_open">Open</string>
-    <string name="action_see_all">See all</string>
     <string name="loading">Loading…</string>
     <string name="staged_label">Coming · %1$s</string>
     <string name="error_generic_title">Something didn’t work</string>
@@ -45,14 +42,12 @@
     <string name="home_stat_last_backup">Last backup</string>
     <string name="home_stat_backup_never">Not yet</string>
     <string name="home_continue_title">Continue where you left off</string>
-    <string name="home_recent_topics">Recently opened topics</string>
     <string name="home_empty_title">Nothing saved yet</string>
     <string name="home_empty_body">Your first capture will appear here. Everything stays on your phone first.</string>
     <string name="home_suggested_title">Suggested collections</string>
     <string name="home_explore_title">Explore</string>
     <string name="home_explore_topics_body">Organized by subject</string>
     <string name="home_explore_ask_body">Answers from what you saved</string>
-    <string name="home_action_banner">%1$d items need your attention</string>
     <string name="home_sync_status_cd">Sync and backup status: %1$s</string>
     <string name="home_settings_cd">Open settings</string>
     <string name="health_local_only">On this phone only · backup is off</string>
@@ -106,12 +101,11 @@
     <string name="search_start_body">Searches everything saved on this phone — works without internet.</string>
     <string name="search_no_results_title">No results for “%1$s”</string>
     <string name="search_no_results_body">Try another word or spelling.</string>
-    <string name="search_results_count">%1$d results</string>
     <string name="search_semantic_note">Search by meaning arrives in a later step (M6).</string>
 
     <string name="topics_title">Topics</string>
     <string name="topics_subtitle">Category → Topic → Subtopic</string>
-    <string name="topics_counts">%1$d items · %2$d topics</string>
+    <string name="topics_counts">Items: %1$d · Topics: %2$d</string>
     <string name="topics_starter_note">These are starter categories — you’ll be able to rename them, add more and bring in your Notion categories.</string>
     <string name="cat_education">Education &amp; Learning</string>
     <string name="cat_technology">Technology &amp; Software</string>
@@ -204,4 +198,12 @@
     <string name="backup_now">Back up now</string>
     <string name="backup_verify">Verify backup</string>
     <string name="backup_restore">Restore</string>
+    <plurals name="home_action_banner">
+        <item quantity="one">%1$d item needs your attention</item>
+        <item quantity="other">%1$d items need your attention</item>
+    </plurals>
+    <plurals name="search_results_count">
+        <item quantity="one">%1$d result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
 </resources>

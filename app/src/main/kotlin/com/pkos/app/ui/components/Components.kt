@@ -172,23 +172,27 @@ fun StatTile(
 ) {
     val t = toneOf(tone)
     val content: @Composable () -> Unit = {
-        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        Row(Modifier.padding(horizontal = Spacing.m, vertical = Spacing.m), verticalAlignment = Alignment.CenterVertically) {
             IconBadge(icon, size = 36.dp, container = t.container, content = t.content)
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-            )
+            Spacer(Modifier.width(Spacing.m))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    value,
+                    // Numbers read large; a word like "Not yet" stays calmer.
+                    style = if (value.any { it.isDigit() } && value.length <= 6) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                )
+            }
         }
     }
-    val m = modifier.heightIn(min = 120.dp).clearAndSetSemantics { contentDescription = "$label: $value" }
+    val m = modifier.heightIn(min = 72.dp).clearAndSetSemantics { contentDescription = "$label: $value" }
     if (onClick != null) {
         Surface(onClick = onClick, color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large, modifier = m) { content() }
     } else {

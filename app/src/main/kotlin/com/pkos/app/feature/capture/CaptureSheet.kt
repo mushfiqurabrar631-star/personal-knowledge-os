@@ -56,6 +56,8 @@ private val options = listOf(
  * Capture sheet with every required source (spec 2.4 / 2.7). Saving is implemented in M2, so in M1 the
  * options are visibly disabled and labelled — nothing pretends to save.
  */
+// rememberModalBottomSheetState is deprecated in Material3 1.5 in favour of a newer API; kept until that API is stable.
+@Suppress("DEPRECATION")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaptureSheet(onDismiss: () -> Unit) {

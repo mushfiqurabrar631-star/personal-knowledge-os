@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PushPin
@@ -52,7 +53,7 @@ fun KnowledgeRow(item: KnowledgeItemEntity, onClick: () -> Unit, modifier: Modif
                     )
                     if (item.pinned) {
                         Spacer(Modifier.width(Spacing.xs))
-                        Icon(Icons.Outlined.PushPin, contentDescription = null, modifier = Modifier.padding(top = 2.dp).width(16.dp))
+                        Icon(Icons.Outlined.PushPin, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
                 secondary?.let {
