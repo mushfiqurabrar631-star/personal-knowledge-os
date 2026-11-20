@@ -31,7 +31,7 @@ import kotlin.random.Random
 class NotionSyncEngineTest {
     private lateinit var fake: FakeNotion
     private lateinit var engine: NotionSyncEngine
-    private var token: String? = "secret_test"
+    private var token: String? = "test-token"
     private lateinit var legacyIds: List<String>
 
     @Before
