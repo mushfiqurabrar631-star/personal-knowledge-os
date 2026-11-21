@@ -109,6 +109,8 @@ class ProcessingEngine(
             AiRunEntity(UUID.randomUUID().toString(), item.id, provider, model, PROMPT_VERSION, AiResultParser.toJson(local, categories), local.confidence, "OK", fallbackReason, input.text.length, clock()),
         )
         val state = apply(fresh, chosen, provider, fallbackReason)
+        // Spec 9 #7: proposals only (owner confirms); never fails the processing.
+        runCatching { com.pkos.core.data.features.ActionService(db, clock).propose(item.id, chosen.actionItems) }
         finish(classify, JobState.SUCCEEDED, null)
         ProcessOutcome.Done(state)
     }
@@ -182,8 +184,8 @@ class ProcessingEngine(
             // Topic / subtopic (spec R-05): reuse an existing topic of that name in the category, else create it.
             if (setTopic) {
                 val topic = topicFor(topicCategory!!, null, r.topic!!)
-                val sub = r.subtopic?.let { topicFor(topicCategory, topic, it) }
-                final = final.copy(topicId = topic, subtopicId = sub)
+                val sub = topic?.let { t -> r.subtopic?.let { topicFor(topicCategory, t, it) } }
+                if (topic != null) final = final.copy(topicId = topic, subtopicId = sub)
             }
             db.knowledgeDao().update(final)
             if (!mine("tags")) r.tags.forEach { name ->
@@ -199,9 +201,13 @@ class ProcessingEngine(
         return state
     }
 
-    private suspend fun topicFor(categoryId: String, parentId: String?, name: String): String {
+    /** Reuses the same or a nearly identical topic (spec 9 #4); creates one only below the per-category cap. */
+    private suspend fun topicFor(categoryId: String, parentId: String?, name: String): String? {
         val clean = name.trim().take(80)
         db.topicDao().find(categoryId, parentId, clean)?.let { return it.id }
+        val topics = com.pkos.core.data.features.TopicService(db, clock)
+        topics.findSimilar(categoryId, parentId, clean)?.let { return it.id }
+        if (parentId == null && !topics.canCreateAuto(categoryId)) return null
         val id = UUID.randomUUID().toString()
         db.topicDao().insert(com.pkos.core.data.db.entity.TopicEntity(id, categoryId, parentId, clean, isUserCreated = false, createdAt = clock()))
         return id

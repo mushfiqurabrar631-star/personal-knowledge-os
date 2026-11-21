@@ -33,6 +33,12 @@ data class AppSettings(
     val retentionDaily: Int = 7,
     val retentionWeekly: Int = 4,
     val retentionMonthly: Int = 6,
+    // M6
+    /** Meaning-aware search (local synonyms + fuzzy; plus cloud embeddings only if cloud AI is on). Can be turned off. */
+    val semanticSearchEnabled: Boolean = true,
+    /** Forgotten-knowledge notifications are opt-in (spec 9 #8). */
+    val remindersEnabled: Boolean = false,
+    val reminderIntervalDays: Int = 7,
 )
 
 interface SettingsRepository {
@@ -45,6 +51,7 @@ interface SettingsRepository {
     suspend fun setAiModel(model: String)
     suspend fun setNotionSyncEnabled(enabled: Boolean)
     suspend fun updateBackup(transform: (AppSettings) -> AppSettings)
+    suspend fun updateFeatures(semantic: Boolean? = null, reminders: Boolean? = null, reminderDays: Int? = null)
 }
 
 private val Context.pkosSettings: DataStore<Preferences> by preferencesDataStore(name = "pkos_settings")
@@ -67,6 +74,9 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         val retDaily = androidx.datastore.preferences.core.intPreferencesKey("retention_daily")
         val retWeekly = androidx.datastore.preferences.core.intPreferencesKey("retention_weekly")
         val retMonthly = androidx.datastore.preferences.core.intPreferencesKey("retention_monthly")
+        val semantic = booleanPreferencesKey("semantic_search")
+        val reminders = booleanPreferencesKey("reminders_enabled")
+        val reminderDays = androidx.datastore.preferences.core.intPreferencesKey("reminder_days")
     }
 
     override val settings: Flow<AppSettings> = store.data.map { p ->
@@ -85,6 +95,9 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
             retentionDaily = p[Keys.retDaily] ?: 7,
             retentionWeekly = p[Keys.retWeekly] ?: 4,
             retentionMonthly = p[Keys.retMonthly] ?: 6,
+            semanticSearchEnabled = p[Keys.semantic] ?: true,
+            remindersEnabled = p[Keys.reminders] ?: false,
+            reminderIntervalDays = p[Keys.reminderDays] ?: 7,
         )
     }
 
@@ -95,6 +108,14 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
     override suspend fun setFloatingCaptureEnabled(enabled: Boolean) { store.edit { it[Keys.floating] = enabled } }
     override suspend fun setAiModel(model: String) { store.edit { it[Keys.aiModel] = model.trim() } }
     override suspend fun setNotionSyncEnabled(enabled: Boolean) { store.edit { it[Keys.notionSync] = enabled } }
+    override suspend fun updateFeatures(semantic: Boolean?, reminders: Boolean?, reminderDays: Int?) {
+        store.edit { p ->
+            semantic?.let { p[Keys.semantic] = it }
+            reminders?.let { p[Keys.reminders] = it }
+            reminderDays?.let { p[Keys.reminderDays] = it.coerceIn(1, 90) }
+        }
+    }
+
     override suspend fun updateBackup(transform: (AppSettings) -> AppSettings) {
         store.edit { p ->
             val cur = AppSettings(

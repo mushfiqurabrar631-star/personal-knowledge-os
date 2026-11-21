@@ -23,6 +23,8 @@ data class AiResult(
     val needsReview: Boolean,
     val reviewReason: String?,
     val subtopic: String? = null,
+    /** Cloud-suggested actions; stored only as PROPOSED, never with dates. */
+    val actionItems: List<String> = emptyList(),
 )
 
 sealed interface ParsedAi {
@@ -66,6 +68,7 @@ object AiResultParser {
             val categoryName = str("main_category", required = false, max = 120).getOrThrow()
             val topic = str("topic", required = false, max = 120).getOrThrow()
             val subtopic = str("subtopic", required = false, max = 120).getOrThrow()
+            val actions = list("action_items").getOrThrow().map { it.take(200) }.take(6)
             val typeRaw = str("content_type", required = true, max = 40).getOrThrow()?.lowercase()
             val type = TYPES[typeRaw] ?: return ParsedAi.Invalid("content_type '$typeRaw' not allowed")
             val purpose = list("purpose").getOrThrow().map { it.lowercase() }
@@ -93,7 +96,7 @@ object AiResultParser {
             }
             var review = needsReview
             if (categoryName != null && categoryId == null) { review = true; reason = reason ?: ReviewReason.UNKNOWN_CATEGORY }
-            ParsedAi.Valid(AiResult(title, summary, categoryId, topic, type, purpose.distinct(), tags, priority, status, confidence, review, reason, subtopic))
+            ParsedAi.Valid(AiResult(title, summary, categoryId, topic, type, purpose.distinct(), tags, priority, status, confidence, review, reason, subtopic, actions))
         } catch (e: IllegalArgumentException) {
             ParsedAi.Invalid(e.message ?: "invalid")
         }

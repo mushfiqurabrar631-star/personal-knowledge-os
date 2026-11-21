@@ -55,18 +55,27 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
-class TopicsViewModel(container: AppContainer) : ViewModel() {
+class TopicsViewModel(private val container: AppContainer) : ViewModel() {
     val categories: StateFlow<List<CategoryWithCounts>?> = container.categories.categories()
         .map<List<CategoryWithCounts>, List<CategoryWithCounts>?> { it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Near-duplicate topics (spec 9 #4). Nothing is merged without the owner's tap. */
+    val merges = kotlinx.coroutines.flow.MutableStateFlow<List<com.pkos.core.data.features.TopicService.MergeSuggestion>>(emptyList())
+    init { refresh() }
+    private fun refresh() { viewModelScope.launch { merges.value = container.topicTools.mergeSuggestions() } }
+    fun merge(m: com.pkos.core.data.features.TopicService.MergeSuggestion) { viewModelScope.launch { container.topicTools.merge(m.from.id, m.into.id); refresh() } }
+    fun keep(m: com.pkos.core.data.features.TopicService.MergeSuggestion) { viewModelScope.launch { container.topicTools.dismiss(m.from.id, m.into.id); refresh() } }
 }
 
 @Composable
 fun TopicsRoute(onBack: () -> Unit) {
     val vm = pkosViewModel { TopicsViewModel(it) }
     val categories by vm.categories.collectAsStateWithLifecycle()
-    TopicsScreen(categories, onBack)
+    val merges by vm.merges.collectAsStateWithLifecycle()
+    TopicsScreen(categories, onBack, merges, vm::merge, vm::keep)
 }
 
 /** Localized display name for system starter categories; user categories show their own name. */
@@ -100,7 +109,11 @@ fun categoryIcon(key: String?): ImageVector = when (key) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopicsScreen(categories: List<CategoryWithCounts>?, onBack: () -> Unit) {
+fun TopicsScreen(
+    categories: List<CategoryWithCounts>?, onBack: () -> Unit,
+    merges: List<com.pkos.core.data.features.TopicService.MergeSuggestion> = emptyList(),
+    onMerge: (com.pkos.core.data.features.TopicService.MergeSuggestion) -> Unit = {}, onKeep: (com.pkos.core.data.features.TopicService.MergeSuggestion) -> Unit = {},
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -126,6 +139,20 @@ fun TopicsScreen(categories: List<CategoryWithCounts>?, onBack: () -> Unit) {
                         Icon(Icons.Outlined.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                         Spacer(Modifier.width(Spacing.m))
                         Text(stringResource(R.string.topics_starter_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                }
+            }
+            if (merges.isNotEmpty()) item {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().testTag("topics_merge")) {
+                    Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                        Text(stringResource(R.string.topics_merge_title), style = MaterialTheme.typography.titleSmall)
+                        merges.forEach { m ->
+                            Text(stringResource(R.string.topics_merge_body, m.from.name, m.into.name, m.fromCount), style = MaterialTheme.typography.bodyMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                                androidx.compose.material3.Button(onClick = { onMerge(m) }, modifier = Modifier.testTag("topics_merge_${m.from.id}")) { Text(stringResource(R.string.topics_merge)) }
+                                androidx.compose.material3.TextButton(onClick = { onKeep(m) }, modifier = Modifier.testTag("topics_keep_${m.from.id}")) { Text(stringResource(R.string.topics_keep)) }
+                            }
+                        }
                     }
                 }
             }

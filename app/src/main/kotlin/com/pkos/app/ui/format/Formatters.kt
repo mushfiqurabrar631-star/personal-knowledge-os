@@ -27,6 +27,9 @@ object Formatters {
             .withLocale(locale)
             .format(Instant.ofEpochMilli(epochMillis).atZone(zone))
 
+    fun date(epochMillis: Long, locale: Locale = Locale.getDefault(), zone: ZoneId = ZoneId.systemDefault()): String =
+        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).format(Instant.ofEpochMilli(epochMillis).atZone(zone))
+
     fun bytes(context: android.content.Context, bytes: Long): String = Formatter.formatShortFileSize(context, bytes)
 
     fun host(url: String?): String? = url?.let { runCatching { java.net.URI(it).host?.removePrefix("www.") }.getOrNull() }

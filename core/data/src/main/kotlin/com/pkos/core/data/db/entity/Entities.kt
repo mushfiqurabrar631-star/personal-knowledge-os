@@ -322,3 +322,82 @@ data class AiRunEntity(
     @ColumnInfo(name = "input_chars") val inputChars: Int = 0,
     @ColumnInfo(name = "created_at") val createdAt: Long,
 )
+
+// ---------------- v6 (M6) ----------------
+
+/**
+ * Offline full-text index (spec 9.1): title, raw text + summary + note + OCR, tags, topic path, URL.
+ * Rebuilt per item when the item changed (item.updated_at > indexed_at); unicode61 tokenizer handles Bengali.
+ */
+@androidx.room.Fts4(tokenizer = androidx.room.FtsOptions.TOKENIZER_UNICODE61, notIndexed = ["item_id", "indexed_at"])
+@Entity(tableName = "knowledge_fts")
+data class KnowledgeFtsEntity(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "rowid") val rowId: Int = 0,
+    @ColumnInfo(name = "item_id") val itemId: String,
+    @ColumnInfo(name = "indexed_at") val indexedAt: Long,
+    val title: String,
+    val content: String,
+    val tags: String,
+    val topics: String,
+    val url: String,
+)
+
+/** Optional semantic vectors (cloud embeddings, owner opt-in). Local-only items never get one. */
+@Entity(
+    tableName = "embeddings",
+    foreignKeys = [ForeignKey(entity = KnowledgeItemEntity::class, parentColumns = ["id"], childColumns = ["knowledge_id"], onDelete = ForeignKey.CASCADE)],
+)
+data class EmbeddingEntity(
+    @PrimaryKey @ColumnInfo(name = "knowledge_id") val knowledgeId: String,
+    val model: String,
+    val dims: Int,
+    val vector: ByteArray,
+    @ColumnInfo(name = "text_hash") val textHash: String,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+)
+
+/** Owner-made graph relations (spec 9 #3). AI never edits or removes these. */
+@Entity(
+    tableName = "knowledge_links",
+    indices = [Index("from_id"), Index("to_id"), Index(value = ["from_id", "to_id"], unique = true)],
+    foreignKeys = [
+        ForeignKey(entity = KnowledgeItemEntity::class, parentColumns = ["id"], childColumns = ["from_id"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = KnowledgeItemEntity::class, parentColumns = ["id"], childColumns = ["to_id"], onDelete = ForeignKey.CASCADE),
+    ],
+)
+data class KnowledgeLinkEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "from_id") val fromId: String,
+    @ColumnInfo(name = "to_id") val toId: String,
+    val relation: String,
+    val note: String? = null,
+    val origin: FieldOrigin = FieldOrigin.USER,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+)
+
+/** Extracted actions (spec 9 #7). PROPOSED until the owner confirms; due dates only ever come from the owner. */
+@Entity(
+    tableName = "action_items",
+    indices = [Index("knowledge_id"), Index("status")],
+    foreignKeys = [ForeignKey(entity = KnowledgeItemEntity::class, parentColumns = ["id"], childColumns = ["knowledge_id"], onDelete = ForeignKey.CASCADE)],
+)
+data class ActionItemEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "knowledge_id") val knowledgeId: String,
+    val text: String,
+    /** TASK or IDEA */
+    val kind: String,
+    /** PROPOSED, CONFIRMED, DONE, DISMISSED */
+    val status: String,
+    @ColumnInfo(name = "due_at") val dueAt: Long? = null,
+    val origin: FieldOrigin,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+)
+
+/** Owner dismissals / snoozes for recommendations, reminders and topic-merge suggestions (key → time). */
+@Entity(tableName = "dismissals")
+data class DismissalEntity(
+    @PrimaryKey val key: String,
+    val at: Long,
+)

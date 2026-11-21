@@ -160,6 +160,9 @@ fun PkosApp(
                         openAskAi = { navController.navigate(AskAiRoute) },
                         openBackupSync = { navController.navigate(BackupSyncRoute) },
                         openSettings = { openTab(SettingsRoute) },
+                        openTimeline = { navController.navigate(TimelineRoute) },
+                        openActions = { navController.navigate(ActionsRoute) },
+                        openCollections = { navController.navigate(CollectionsRoute) },
                     ),
                 )
             }
@@ -172,12 +175,16 @@ fun PkosApp(
                         openBackupSync = { navController.navigate(BackupSyncRoute) },
                         openAiSettings = { navController.navigate(AiSettingsRoute) },
                         openNotionSettings = { navController.navigate(NotionSettingsRoute) },
+                        openExport = { navController.navigate(ExportRoute) },
+                        openCollections = { navController.navigate(CollectionsRoute) },
+                        openActions = { navController.navigate(ActionsRoute) },
+                        openTimeline = { navController.navigate(TimelineRoute) },
                         onReplayOnboarding = { navController.navigate(OnboardingRoute) { popUpTo(0) { inclusive = true } } },
                     ),
                 )
             }
             composable<TopicsRoute> { TopicsRouteScreen(onBack = { navController.popBackStack() }) }
-            composable<AskAiRoute> { AskAiScreen(onBack = { navController.popBackStack() }, openIntegrations = { navController.navigate(IntegrationsRoute) }) }
+            composable<AskAiRoute> { AskAiScreen(onBack = { navController.popBackStack() }, openIntegrations = { navController.navigate(IntegrationsRoute) }, openItem = { navController.navigate(ItemDetailRoute(it)) }) }
             composable<IntegrationsRoute> {
                 IntegrationsScreen(LocalAppContainer.current.integrations.current(), onBack = { navController.popBackStack() }, openAiSettings = { navController.navigate(AiSettingsRoute) }, openNotionSettings = { navController.navigate(NotionSettingsRoute) }, openBackup = { navController.navigate(BackupSyncRoute) })
             }
@@ -185,8 +192,22 @@ fun PkosApp(
             composable<AiSettingsRoute> { com.pkos.app.feature.settings.AiSettingsRoute(onBack = { navController.popBackStack() }) }
             composable<BackupSyncRoute> { BackupSyncRouteScreen(onBack = { navController.popBackStack() }) }
             composable<ItemDetailRoute> { entry ->
-                ItemDetailRouteScreen(entry.toRoute<ItemDetailRoute>().id, onBack = { navController.popBackStack() }, onEdit = { navController.navigate(EditItemRoute(it)) })
+                ItemDetailRouteScreen(
+                    entry.toRoute<ItemDetailRoute>().id, onBack = { navController.popBackStack() }, onEdit = { navController.navigate(EditItemRoute(it)) },
+                    openItem = { navController.navigate(ItemDetailRoute(it)) }, openConnections = { navController.navigate(ConnectionsRoute(it)) },
+                )
             }
+            composable<TimelineRoute> { com.pkos.app.feature.knowledge.TimelineRoute(onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }) }
+            composable<ActionsRoute> { com.pkos.app.feature.knowledge.ActionsRoute(onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }) }
+            composable<CollectionsRoute> {
+                com.pkos.app.feature.knowledge.CollectionsRoute(onBack = { navController.popBackStack() }, open = { navController.navigate(CollectionDetailRoute(it)) }, create = { navController.navigate(CollectionEditRoute(null, it)) })
+            }
+            composable<CollectionDetailRoute> { entry ->
+                com.pkos.app.feature.knowledge.CollectionDetailRoute(entry.toRoute<CollectionDetailRoute>().id, onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }, edit = { navController.navigate(CollectionEditRoute(it)) })
+            }
+            composable<CollectionEditRoute> { entry -> val r = entry.toRoute<CollectionEditRoute>(); com.pkos.app.feature.knowledge.CollectionEditorRoute(r.id, r.smart, onDone = { navController.popBackStack() }) }
+            composable<ExportRoute> { com.pkos.app.feature.knowledge.ExportRoute(onBack = { navController.popBackStack() }) }
+            composable<ConnectionsRoute> { entry -> com.pkos.app.feature.knowledge.ConnectionsRoute(entry.toRoute<ConnectionsRoute>().id, onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }) }
             composable<EditItemRoute> { entry -> com.pkos.app.feature.item.EditItemRoute(entry.toRoute<EditItemRoute>().id, onDone = { navController.popBackStack() }) }
         }
     }

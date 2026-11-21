@@ -32,6 +32,9 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SyncAlt
 import androidx.compose.material.icons.outlined.Topic
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -80,13 +83,17 @@ data class HomeActions(
     val openAskAi: () -> Unit,
     val openBackupSync: () -> Unit,
     val openSettings: () -> Unit,
+    val openTimeline: () -> Unit = {},
+    val openActions: () -> Unit = {},
+    val openCollections: () -> Unit = {},
+    val dismissNext: (String) -> Unit = {},
 )
 
 @Composable
 fun HomeRoute(actions: HomeActions) {
     val vm = pkosViewModel { HomeViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
-    HomeScreen(state, actions, onDismissSuggestion = vm::dismissSuggestion)
+    HomeScreen(state, actions.copy(dismissNext = vm::dismissNext), onDismissSuggestion = vm::dismissSuggestion)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -172,6 +179,21 @@ private fun HomeContent(state: HomeUiState.Ready, actions: HomeActions, onDismis
                 KnowledgeRow(item, onClick = { actions.openItem(item.id) }, modifier = Modifier.padding(horizontal = Spacing.screen))
             }
         }
+        if (state.nextUseful.isNotEmpty()) {
+            item { SectionHeader(stringResource(R.string.home_next_title)) }
+            items(state.nextUseful, key = { "next-" + it.id }) { item ->
+                Row(Modifier.padding(horizontal = Spacing.screen).testTag("home_next_${item.id}"), verticalAlignment = Alignment.CenterVertically) {
+                    KnowledgeRow(item, onClick = { actions.openItem(item.id) }, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { actions.dismissNext(item.id) }) { Icon(Icons.Outlined.Close, stringResource(R.string.rec_dismiss)) }
+                }
+            }
+        }
+        if (state.rediscover.isNotEmpty()) {
+            item { SectionHeader(stringResource(R.string.home_rediscover_title)) }
+            items(state.rediscover, key = { "re-" + it.id }) { item ->
+                KnowledgeRow(item, onClick = { actions.openItem(item.id) }, modifier = Modifier.padding(horizontal = Spacing.screen).testTag("home_rediscover_${item.id}"))
+            }
+        }
         if (state.suggestions.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.home_suggested_title)) }
             items(state.suggestions, key = { it.id }) { c ->
@@ -193,6 +215,9 @@ private fun HomeContent(state: HomeUiState.Ready, actions: HomeActions, onDismis
             Column(Modifier.padding(horizontal = Spacing.screen), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 NavigationRowCard(Icons.Outlined.Topic, stringResource(R.string.nav_topics), stringResource(R.string.home_explore_topics_body), actions.openTopics, Modifier.fillMaxWidth())
                 NavigationRowCard(Icons.Outlined.Forum, stringResource(R.string.nav_ask_ai), stringResource(R.string.home_explore_ask_body), actions.openAskAi, Modifier.fillMaxWidth())
+                NavigationRowCard(Icons.Outlined.Checklist, stringResource(R.string.nav_actions), stringResource(R.string.home_explore_actions_body), actions.openActions, Modifier.fillMaxWidth().testTag("home_open_actions"))
+                NavigationRowCard(Icons.Outlined.Bookmarks, stringResource(R.string.nav_collections), stringResource(R.string.home_explore_collections_body), actions.openCollections, Modifier.fillMaxWidth().testTag("home_open_collections"))
+                NavigationRowCard(Icons.Outlined.Timeline, stringResource(R.string.nav_timeline), stringResource(R.string.home_explore_timeline_body), actions.openTimeline, Modifier.fillMaxWidth().testTag("home_open_timeline"))
             }
         }
     }

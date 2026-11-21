@@ -15,3 +15,10 @@ import kotlinx.serialization.Serializable
 @Serializable data object NotionSettingsRoute
 @Serializable data class ItemDetailRoute(val id: String)
 @Serializable data class EditItemRoute(val id: String)
+@Serializable data object TimelineRoute
+@Serializable data object ActionsRoute
+@Serializable data object CollectionsRoute
+@Serializable data object ExportRoute
+@Serializable data class CollectionDetailRoute(val id: String)
+@Serializable data class CollectionEditRoute(val id: String? = null, val smart: Boolean = false)
+@Serializable data class ConnectionsRoute(val id: String)

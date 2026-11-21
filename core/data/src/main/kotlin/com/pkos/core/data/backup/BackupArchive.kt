@@ -70,8 +70,10 @@ object BackupArchive {
     }
 
     /** integrity_check + user_version; returns (schemaVersion, itemCount, attachmentCount). */
+    // Read-write open: since schema v6 the file holds an FTS4 table, and SQLite's integrity_check needs write access
+    // to validate an FTS index (it changes nothing). Only snapshot/staging copies, or the restored file while Room has it closed, are opened here.
     fun checkDatabase(file: File): Triple<Int, Int, Int> =
-        SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { s ->
+        SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READWRITE).use { s ->
             val ok = s.rawQuery("PRAGMA integrity_check", null).use { it.moveToFirst(); it.getString(0) }
             if (ok != "ok") throw CorruptBackupException("database integrity_check: $ok")
             val version = s.rawQuery("PRAGMA user_version", null).use { it.moveToFirst(); it.getInt(0) }

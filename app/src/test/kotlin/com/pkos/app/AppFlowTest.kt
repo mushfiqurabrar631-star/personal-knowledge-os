@@ -209,8 +209,8 @@ class AppFlowTest {
         waitFor(hasTestTag("home_list"))
         rule.onNodeWithTag("home_list").performScrollToNode(hasText(s(R.string.nav_ask_ai)))
         rule.onNodeWithText(s(R.string.nav_ask_ai)).performClick()
-        waitFor(hasTestTag("ask_not_ready"))
-        rule.onNodeWithTag("ask_input").assertIsNotEnabled()
+        waitFor(hasTestTag("ask_intro"))
+        rule.onNodeWithTag("ask_input").assertIsEnabled() // M6: works offline from saved items
     }
 
     @Test fun settingsPersistThemeAndPrivacyChoices() {

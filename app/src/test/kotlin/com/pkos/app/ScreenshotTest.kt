@@ -87,7 +87,7 @@ class ScreenshotTest {
 
     @Test fun s15_askAi() {
         home(); rule.onNodeWithTag("home_list").performScrollToNode(hasText(s(R.string.nav_ask_ai)))
-        rule.onNodeWithText(s(R.string.nav_ask_ai)).performClick(); waitFor(hasTestTag("ask_not_ready")); shot("15_ask_ai")
+        rule.onNodeWithText(s(R.string.nav_ask_ai)).performClick(); waitFor(hasTestTag("ask_intro")); shot("15_ask_ai")
     }
 
     @Test fun s16_itemDetail() {

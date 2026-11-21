@@ -114,7 +114,7 @@ class ItemDetailViewModel(private val container: AppContainer, private val id: S
 }
 
 @Composable
-fun ItemDetailRoute(id: String, onBack: () -> Unit, onEdit: (String) -> Unit = {}) {
+fun ItemDetailRoute(id: String, onBack: () -> Unit, onEdit: (String) -> Unit = {}, openItem: (String) -> Unit = {}, openConnections: (String) -> Unit = {}) {
     val vm = pkosViewModel(key = "item-$id") { ItemDetailViewModel(it, id) }
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(id) { vm.markOpened() }
@@ -123,6 +123,7 @@ fun ItemDetailRoute(id: String, onBack: () -> Unit, onEdit: (String) -> Unit = {
     val notion by vm.notion.collectAsStateWithLifecycle()
     ItemDetailScreen(
         state, onBack, categories = categories, notion = notion,
+        knowledgeExtras = { com.pkos.app.feature.knowledge.ItemKnowledgeSection(id, openItem, openConnections) },
         actions = ItemActions(
             onPin = vm::setPinned,
             onSaveNote = vm::saveNote,
@@ -177,6 +178,7 @@ fun ItemDetailScreen(
     actions: ItemActions = ItemActions(),
     categories: List<com.pkos.core.data.db.entity.CategoryEntity> = emptyList(),
     notion: NotionItemState = NotionItemState(),
+    knowledgeExtras: @Composable () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -316,6 +318,7 @@ fun ItemDetailScreen(
                             }
                         }
                     }
+                    knowledgeExtras()
                     NotionStatusSection(d.item, notion, actions)
                     Section(stringResource(R.string.item_section_history)) {
                         if (d.versions.isEmpty()) Body(stringResource(R.string.item_no_history))

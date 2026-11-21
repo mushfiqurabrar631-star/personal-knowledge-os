@@ -443,3 +443,131 @@ interface BackupDao {
 }
 
 data class IdText(val id: String, @ColumnInfo(name = "raw_text") val rawText: String)
+
+/** M6 feature tables (search index, embeddings, links, actions, dismissals, collections). */
+@Dao
+interface FeatureDao {
+    // --- full-text index ---
+    @Query("SELECT k.id FROM knowledge_items k LEFT JOIN knowledge_fts f ON f.item_id = k.id WHERE f.item_id IS NULL OR k.updated_at > f.indexed_at")
+    suspend fun staleIndexIds(): List<String>
+
+    @Query("DELETE FROM knowledge_fts WHERE item_id = :id")
+    suspend fun deleteFts(id: String)
+
+    @Insert
+    suspend fun insertFts(row: com.pkos.core.data.db.entity.KnowledgeFtsEntity)
+
+    @Query("SELECT item_id FROM knowledge_fts WHERE knowledge_fts MATCH :match LIMIT :limit")
+    suspend fun ftsMatch(match: String, limit: Int): List<String>
+
+    // --- embeddings ---
+    @Upsert
+    suspend fun upsertEmbedding(e: com.pkos.core.data.db.entity.EmbeddingEntity)
+
+    @Query("SELECT * FROM embeddings WHERE model = :model")
+    suspend fun embeddings(model: String): List<com.pkos.core.data.db.entity.EmbeddingEntity>
+
+    @Query("SELECT text_hash FROM embeddings WHERE knowledge_id = :id AND model = :model")
+    suspend fun embeddingHash(id: String, model: String): String?
+
+    // --- links ---
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertLink(l: com.pkos.core.data.db.entity.KnowledgeLinkEntity): Long
+
+    @Query("SELECT * FROM knowledge_links WHERE from_id = :id OR to_id = :id")
+    suspend fun linksFor(id: String): List<com.pkos.core.data.db.entity.KnowledgeLinkEntity>
+
+    @Query("SELECT * FROM knowledge_links WHERE from_id = :id OR to_id = :id")
+    fun observeLinks(id: String): Flow<List<com.pkos.core.data.db.entity.KnowledgeLinkEntity>>
+
+    @Query("DELETE FROM knowledge_links WHERE id = :id AND origin = 'USER'")
+    suspend fun deleteUserLink(id: String)
+
+    // --- actions ---
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAction(a: com.pkos.core.data.db.entity.ActionItemEntity): Long
+
+    @Query("SELECT COUNT(*) FROM action_items WHERE knowledge_id = :id")
+    suspend fun actionCount(id: String): Int
+
+    @Query("SELECT * FROM action_items WHERE knowledge_id = :id ORDER BY created_at")
+    fun observeActionsFor(id: String): Flow<List<com.pkos.core.data.db.entity.ActionItemEntity>>
+
+    @Query("SELECT a.* FROM action_items a JOIN knowledge_items k ON k.id = a.knowledge_id WHERE k.deleted_at IS NULL AND a.status IN (:statuses) ORDER BY a.status = 'PROPOSED' DESC, COALESCE(a.due_at, 9223372036854775807), a.created_at DESC")
+    fun observeActions(statuses: List<String>): Flow<List<com.pkos.core.data.db.entity.ActionItemEntity>>
+
+    @Query("UPDATE action_items SET status = :status, due_at = :dueAt, text = :text, updated_at = :at WHERE id = :id")
+    suspend fun updateAction(id: String, status: String, dueAt: Long?, text: String, at: Long)
+
+    @Query("SELECT * FROM action_items WHERE id = :id")
+    suspend fun action(id: String): com.pkos.core.data.db.entity.ActionItemEntity?
+
+    // --- dismissals ---
+    @Upsert
+    suspend fun dismiss(d: com.pkos.core.data.db.entity.DismissalEntity)
+
+    @Query("SELECT key FROM dismissals WHERE key LIKE :prefix || '%'")
+    suspend fun dismissedKeys(prefix: String): List<String>
+
+    @Query("SELECT at FROM dismissals WHERE key = :key")
+    suspend fun dismissedAt(key: String): Long?
+
+    
+    // --- collections ---
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertCollection(c: CollectionEntity)
+
+    @Update
+    suspend fun updateCollection(c: CollectionEntity)
+
+    @Query("DELETE FROM collections WHERE id = :id")
+    suspend fun deleteCollection(id: String)
+
+    @Query("SELECT * FROM collections WHERE is_suggested = 0 OR dismissed = 0 ORDER BY name COLLATE NOCASE")
+    fun observeCollections(): Flow<List<CollectionEntity>>
+
+    @Query("SELECT * FROM collections WHERE id = :id")
+    suspend fun collection(id: String): CollectionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addToCollection(i: com.pkos.core.data.db.entity.CollectionItemEntity)
+
+    @Query("DELETE FROM collection_items WHERE collection_id = :collectionId AND knowledge_id = :itemId")
+    suspend fun removeFromCollection(collectionId: String, itemId: String)
+
+    @Query("SELECT k.* FROM knowledge_items k JOIN collection_items ci ON ci.knowledge_id = k.id WHERE ci.collection_id = :id AND k.deleted_at IS NULL ORDER BY k.created_at DESC")
+    suspend fun manualItems(id: String): List<KnowledgeItemEntity>
+
+    @Query("SELECT collection_id FROM collection_items WHERE knowledge_id = :itemId")
+    fun observeCollectionsOf(itemId: String): Flow<List<String>>
+
+    // --- whole-library reads (graph, recommendations, rules, timeline, export) ---
+    @Query("SELECT * FROM knowledge_items WHERE deleted_at IS NULL")
+    suspend fun liveItems(): List<KnowledgeItemEntity>
+
+    @Query("SELECT kt.knowledge_id AS item_id, t.name AS name FROM knowledge_tags kt JOIN tags t ON t.id = kt.tag_id")
+    suspend fun itemTags(): List<ItemName>
+
+    @Query("SELECT * FROM topics")
+    suspend fun topics(): List<TopicEntity>
+
+    @Query("UPDATE knowledge_items SET topic_id = :to, updated_at = :at WHERE topic_id = :from")
+    suspend fun moveTopic(from: String, to: String, at: Long)
+
+    @Query("UPDATE knowledge_items SET subtopic_id = NULL, updated_at = :at WHERE subtopic_id = :id")
+    suspend fun clearSubtopic(id: String, at: Long)
+
+    @Query("UPDATE topics SET parent_topic_id = :to WHERE parent_topic_id = :from")
+    suspend fun reparentTopics(from: String, to: String)
+
+    @Query("DELETE FROM topics WHERE id = :id")
+    suspend fun deleteTopic(id: String)
+
+    @Query("SELECT * FROM item_versions WHERE changed_at >= :from ORDER BY changed_at DESC")
+    suspend fun versionsSince(from: Long): List<ItemVersionEntity>
+
+    @Query("SELECT * FROM item_versions")
+    suspend fun allVersions(): List<ItemVersionEntity>
+}
+
+data class ItemName(@ColumnInfo(name = "item_id") val itemId: String, val name: String)

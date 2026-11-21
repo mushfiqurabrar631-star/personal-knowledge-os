@@ -13,8 +13,8 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 | R-07 | Cloud backup | 🟡 | Built & tested: drive.file OAuth, visible folder, AES-256-GCM chunked archive (random nonces), PBKDF2 600k recovery key, consistent DB snapshot, SHA-256 checksums, manifest/versions, resumable upload, size+MD5 verification, GFS retention, quota warning, staged restore + preview + safety snapshot/rollback, WorkManager. **Pending: real Google Drive backup + clean-install restore on the phone** |
 | R-08 | Offline support | 🟡 | Capture, extraction, OCR, local classification, search offline (tested); Notion queue waits for network (WorkManager constraint); backup queue in M5 |
 | R-09 | No silent paid usage | ✅ | Cloud AI off by default, owner key only, quota/429 → local fallback, never paid |
-| R-10 | Export & recovery | ⬜ | M6 |
-| R-11 | 10 advanced features | ⬜ | M6 |
+| R-10 | Export & recovery | 🟡 | M6: zip export (JSON/CSV/Markdown/attachments + SHA-256 report, local-only opt-in, no secrets) + local integrity check, tested; recovery = M5 encrypted restore. No export-zip import. Real-phone file-picker check pending |
+| R-11 | 10 advanced features | 🟡 | M6: all 10 implemented & tested (docs/m6-report.md). Limits: offline “meaning” = related words + spelling (vectors only with cloud key), graph is per-item, chat single-turn; reminders and cloud paths need phone verification |
 | R-12 | Premium UX | 🟡 | M1 shell done: navigation, onboarding, 10 screens, design system, bn/en, dark mode, large font; 24 screenshots, 17 UI tests |
 
 ## Build environment
@@ -23,6 +23,9 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 - No emulator (no KVM): UI verified with Robolectric Compose tests and Roborazzi screenshots; device install by owner.
 
 ## Last verified checkpoint
+2026-11-22 — M6 search & advanced features (DB v6): :core:notion 56/56, :core:data 93/93, :app 53/53, screenshots 43/43
+(M6: 10 images), lint 0 errors, debug + release build. Report: docs/m6-report.md.
+
 2026-11-22 — M3 gaps closed: :core:notion 56/56, :core:data 81/81, :app 46/46, screenshots 36/36, lint 0 errors,
 debug + release build. Report: docs/m3-gaps-report.md.
 

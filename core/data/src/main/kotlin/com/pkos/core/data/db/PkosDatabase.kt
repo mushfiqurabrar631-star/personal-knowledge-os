@@ -37,7 +37,7 @@ import com.pkos.core.data.db.entity.TopicEntity
  * explicit migrations when their features are built.
  */
 /** Current Room schema version; restores of newer backups are refused. */
-const val DB_VERSION = 5
+const val DB_VERSION = 6
 
 @Database(
     entities = [
@@ -48,10 +48,13 @@ const val DB_VERSION = 5
         CollectionItemEntity::class, ItemVersionEntity::class, com.pkos.core.data.db.entity.AiRunEntity::class,
         com.pkos.core.data.db.entity.NotionKeptPropertiesEntity::class, com.pkos.core.data.db.entity.NotionConflictEntity::class,
         com.pkos.core.data.db.entity.RecoveryMetadataEntity::class,
+        com.pkos.core.data.db.entity.KnowledgeFtsEntity::class, com.pkos.core.data.db.entity.EmbeddingEntity::class,
+        com.pkos.core.data.db.entity.KnowledgeLinkEntity::class, com.pkos.core.data.db.entity.ActionItemEntity::class,
+        com.pkos.core.data.db.entity.DismissalEntity::class,
     ],
     version = DB_VERSION,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6)],
 )
 abstract class PkosDatabase : RoomDatabase() {
     abstract fun knowledgeDao(): KnowledgeDao
@@ -63,6 +66,7 @@ abstract class PkosDatabase : RoomDatabase() {
     abstract fun collectionDao(): CollectionDao
     abstract fun itemVersionDao(): ItemVersionDao
     abstract fun attachmentDao(): AttachmentDao
+    abstract fun featureDao(): com.pkos.core.data.db.dao.FeatureDao
     abstract fun backupDao(): com.pkos.core.data.db.dao.BackupDao
     abstract fun notionDao(): com.pkos.core.data.db.dao.NotionDao
     abstract fun aiRunDao(): com.pkos.core.data.db.dao.AiRunDao

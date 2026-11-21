@@ -18,7 +18,12 @@ class ProcessingWorker(context: Context, params: WorkerParameters) : CoroutineWo
         val container = (applicationContext as PkosApplication).container
         return when (val out = container.processing.process(id, container.cloudProvider())) {
             is ProcessOutcome.Retry -> { container.scheduler.enqueue(id, out.delayMs); Result.success() }
-            is ProcessOutcome.Done -> { container.requestNotionSync(id); Result.success() }
+            is ProcessOutcome.Done -> {
+                container.requestNotionSync(id)
+                runCatching { container.search.refreshIndex() }
+                container.cloudEmbedder()?.let { e -> runCatching { container.search.indexEmbeddings(e, max = 10) } }
+                Result.success()
+            }
             else -> Result.success()
         }
     }

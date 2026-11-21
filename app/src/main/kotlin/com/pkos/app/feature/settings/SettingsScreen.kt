@@ -32,6 +32,12 @@ import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.SaveAlt
+import androidx.compose.material.icons.automirrored.outlined.ManageSearch
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -72,7 +78,6 @@ import com.pkos.app.di.AppContainer
 import com.pkos.app.di.PermissionState
 import com.pkos.app.ui.components.IconBadge
 import com.pkos.app.ui.components.SectionHeader
-import com.pkos.app.ui.components.StagedPill
 import com.pkos.app.ui.format.Formatters
 import com.pkos.app.ui.pkosViewModel
 import com.pkos.app.ui.theme.Spacing
@@ -97,6 +102,10 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setCloudAi(on: Boolean) { viewModelScope.launch { container.settings.setCloudAiEnabled(on) } }
     fun setFloating(on: Boolean) { viewModelScope.launch { container.settings.setFloatingCaptureEnabled(on) } }
     fun setLocalOnly(on: Boolean) { viewModelScope.launch { container.settings.setLocalOnlyByDefault(on) } }
+    fun setSemantic(on: Boolean) { viewModelScope.launch { container.settings.updateFeatures(semantic = on, reminders = null, reminderDays = null) } }
+    /** Reminders are opt-in: the daily check is scheduled only while the owner keeps this on. */
+    fun setReminders(on: Boolean) { viewModelScope.launch { container.settings.updateFeatures(semantic = null, reminders = on, reminderDays = null); container.reminderScheduler.set(on) } }
+    fun setReminderDays(d: Int) { viewModelScope.launch { container.settings.updateFeatures(semantic = null, reminders = null, reminderDays = d) } }
     fun replayOnboarding(then: () -> Unit) { viewModelScope.launch { container.settings.setOnboardingCompleted(false); then() } }
 }
 
@@ -108,6 +117,10 @@ data class SettingsActions(
     val onReplayOnboarding: () -> Unit,
     val openAiSettings: () -> Unit = {},
     val openNotionSettings: () -> Unit = {},
+    val openExport: () -> Unit = {},
+    val openCollections: () -> Unit = {},
+    val openActions: () -> Unit = {},
+    val openTimeline: () -> Unit = {},
 )
 
 @Composable
@@ -177,6 +190,12 @@ fun SettingsRoute(actions: SettingsActions) {
             }
         },
         actions = actions.copy(onReplayOnboarding = { vm.replayOnboarding(actions.onReplayOnboarding) }),
+        onSemantic = vm::setSemantic,
+        onReminders = { on ->
+            vm.setReminders(on)
+            if (on && android.os.Build.VERSION.SDK_INT >= 33 && notifications != PermissionState.GRANTED) notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        },
+        onReminderDays = vm::setReminderDays,
     )
 }
 
@@ -207,6 +226,9 @@ fun SettingsScreen(
     onLocalOnly: (Boolean) -> Unit,
     actions: SettingsActions,
     onFloating: (Boolean) -> Unit = {},
+    onSemantic: (Boolean) -> Unit = {},
+    onReminders: (Boolean) -> Unit = {},
+    onReminderDays: (Int) -> Unit = {},
 ) {
     val context = LocalContext.current
     Scaffold(
@@ -257,6 +279,26 @@ fun SettingsScreen(
                     SwitchRow(Icons.Outlined.PhoneAndroid, stringResource(R.string.settings_local_only), stringResource(R.string.settings_local_only_sub), settings.localOnlyByDefault, onLocalOnly, "local_only")
                 }
             }
+            item { SectionHeader(stringResource(R.string.settings_knowledge_title)) }
+            item {
+                Group {
+                    SwitchRow(Icons.AutoMirrored.Outlined.ManageSearch, stringResource(R.string.settings_semantic), stringResource(R.string.settings_semantic_body), settings.semanticSearchEnabled, onSemantic, "semantic")
+                    SwitchRow(Icons.Outlined.NotificationsActive, stringResource(R.string.settings_reminders), stringResource(R.string.settings_reminders_body), settings.remindersEnabled, onReminders, "reminders")
+                    if (settings.remindersEnabled) {
+                        val days = listOf(3, 7, 14, 30)
+                        ChoiceRow(Icons.Outlined.Schedule, stringResource(R.string.settings_reminder_interval, settings.reminderIntervalDays)) {
+                            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                                days.forEachIndexed { i, d ->
+                                    SegmentedButton(selected = settings.reminderIntervalDays == d, onClick = { onReminderDays(d) }, shape = SegmentedButtonDefaults.itemShape(i, days.size), modifier = Modifier.testTag("reminder_days_$d")) { Text("$d") }
+                                }
+                            }
+                        }
+                    }
+                    LinkRow(Icons.Outlined.Checklist, stringResource(R.string.nav_actions), null, actions.openActions)
+                    LinkRow(Icons.Outlined.Bookmarks, stringResource(R.string.nav_collections), null, actions.openCollections)
+                    LinkRow(Icons.Outlined.Timeline, stringResource(R.string.nav_timeline), null, actions.openTimeline)
+                }
+            }
             item { SectionHeader(stringResource(R.string.settings_section_permissions)) }
             item {
                 Group {
@@ -272,8 +314,8 @@ fun SettingsScreen(
                         storage?.let { stringResource(R.string.settings_storage_value, Formatters.bytes(context, it.databaseBytes), Formatters.bytes(context, it.attachmentBytes)) }
                             ?: stringResource(R.string.loading),
                     )
-                    InfoRow(Icons.Outlined.SaveAlt, stringResource(R.string.settings_export), null) { StagedPill("M6") }
-                    InfoRow(Icons.Outlined.Key, stringResource(R.string.settings_recovery_key), null) { StagedPill("M5") }
+                    LinkRow(Icons.Outlined.SaveAlt, stringResource(R.string.settings_export), stringResource(R.string.nav_export), actions.openExport)
+                    LinkRow(Icons.Outlined.Key, stringResource(R.string.settings_recovery_key), stringResource(R.string.settings_backup_sync), actions.openBackupSync)
                 }
             }
             item { SectionHeader(stringResource(R.string.settings_section_about)) }

@@ -154,6 +154,35 @@ class AppContainer(
         return com.pkos.core.data.processing.GeminiProvider(key, s.aiModel, http)
     }
 
+    // ---- M6: search & knowledge tools (all local; cloud helpers only with the owner's switch + key) ----
+    val search = com.pkos.core.data.features.SearchService(database)
+    val chat = com.pkos.core.data.features.KnowledgeChat(search)
+    val graph = com.pkos.core.data.features.GraphService(database)
+    val topicTools = com.pkos.core.data.features.TopicService(database)
+    val recommender = com.pkos.core.data.features.Recommender(database, graph)
+    val timeline = com.pkos.core.data.features.TimelineService(database)
+    val actions = com.pkos.core.data.features.ActionService(database)
+    val smartCollections = com.pkos.core.data.features.CollectionService(database)
+    val reminders = com.pkos.core.data.features.ReminderService(database)
+    val reminderScheduler = com.pkos.app.features.ReminderScheduler(context)
+    val exporter by lazy { com.pkos.core.data.features.ExportService(database, java.io.File(context.filesDir, StorageRepository.ATTACHMENTS_DIR), appVersion) }
+
+    /** Gemini answer writer for Ask — only with cloud AI on and a key saved. Never a paid service. */
+    suspend fun cloudGenerator(): com.pkos.core.data.features.TextGenerator? {
+        val s = settings.settings.first()
+        if (!s.cloudAiEnabled) return null
+        val key = secrets.get(com.pkos.app.processing.GEMINI_KEY) ?: return null
+        return com.pkos.core.data.features.GeminiTextGenerator(key, s.aiModel, http)
+    }
+
+    /** Embeddings for meaning search — only with cloud AI on, semantic search on and a key saved. */
+    suspend fun cloudEmbedder(): com.pkos.core.data.features.EmbeddingProvider? {
+        val s = settings.settings.first()
+        if (!s.cloudAiEnabled || !s.semanticSearchEnabled) return null
+        val key = secrets.get(com.pkos.app.processing.GEMINI_KEY) ?: return null
+        return com.pkos.core.data.features.GeminiEmbeddingProvider(key, http = http)
+    }
+
     /** Called after every successful capture: background processing starts right away (spec 5.2). */
     var onCaptured: (String) -> Unit = { scheduler.enqueue(it) }
 

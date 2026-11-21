@@ -35,6 +35,13 @@ class InMemorySettings(initial: AppSettings = AppSettings()) : SettingsRepositor
     override suspend fun setAiModel(model: String) { state.value = state.value.copy(aiModel = model) }
     override suspend fun setNotionSyncEnabled(enabled: Boolean) { state.value = state.value.copy(notionSyncEnabled = enabled) }
     override suspend fun updateBackup(transform: (AppSettings) -> AppSettings) { state.value = transform(state.value) }
+    override suspend fun updateFeatures(semantic: Boolean?, reminders: Boolean?, reminderDays: Int?) {
+        state.value = state.value.copy(
+            semanticSearchEnabled = semantic ?: state.value.semanticSearchEnabled,
+            remindersEnabled = reminders ?: state.value.remindersEnabled,
+            reminderIntervalDays = reminderDays ?: state.value.reminderIntervalDays,
+        )
+    }
 }
 
 /** Real repositories over a real (in-memory) Room database. */
