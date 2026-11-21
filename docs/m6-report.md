@@ -25,12 +25,60 @@ Found and fixed during regression: SQLite’s `integrity_check` needs write acce
 ## Privacy / cost
 Cloud calls (answers, embeddings) only with *Cloud AI* on and the owner’s own Gemini key; failures fall back to offline results silently. Notion integration, Drive backup, recovery, and owner-edited fields (field origins) are untouched.
 
-## Tests
-- `:core:notion` 56/56 · `:core:data` 93/93 (new `M6FeaturesTest` 12 + migration v6) · `:app` 53/53 (new `M6FlowTest` 7) · screenshots 43/43 (new `ScreenshotM6Test` 7 → 10 images in `docs/screenshots/m6`).
-- Lint: 0 errors (app + core:data). `assembleDebug` + `assembleRelease` OK.
+## Known limitations (M6 as shipped)
+- **Knowledge Chat is single-turn.** Each question is answered on its own; earlier questions in the conversation are not used as context, and the conversation is not saved (cleared when the screen closes).
+- **The knowledge graph is per item.** The Connections screen shows one item and its neighbours; there is no whole-library graph view.
+- **No import of the export ZIP.** The export is a portable copy (JSON/CSV/Markdown/files). Restoring the app itself uses the M5 encrypted Google Drive backup/restore; an export ZIP cannot be read back into PKOS.
+- Offline “meaning” search = related-word groups + spelling similarity; vector similarity needs cloud AI with the owner’s Gemini key.
+- Confirmed tasks stay inside PKOS (not sent to Notion or a calendar).
 
-## Needs a real phone
-1. Reminder notification appears (Android 13+ permission prompt), tap opens the item.
-2. Export to Downloads/Drive via the system picker; open CSV in a spreadsheet, Markdown in a notes app.
-3. With cloud AI + key: Ask gives cited Gemini answers; meaning search returns “Similar meaning” matches.
-4. Still pending from earlier milestones: M2 floating capture, M4 live Notion write, M5 real Drive backup + clean-install restore.
+## 1. Automated tests (run in the build sandbox, Robolectric/JVM — no emulator)
+Final full regression, 2026-11-22 02:58 (+06), clean build, `versionName 0.6.0-m6`:
+
+| Suite | Result | Includes |
+|---|---|---|
+| `:core:notion:test` | 56/56 ✅ | Notion schema guard, mapper, sync engine |
+| `:core:data:testDebugUnitTest` | 93/93 ✅ | `M6FeaturesTest` (12), `MigrationTest.v1ToV6KeepsExistingItems` (Room v1→v6 with schema validation), backup/restore 13, Notion sync, processing |
+| `:app:testDebugUnitTest` (flow tests) | 53/53 ✅ | `M6FlowTest` (7), AppFlowTest, BackupFlowTest, NotionFlowTest, ItemEditFlowTest … |
+| `:app:recordRoborazziDebug` (screenshot tests) | 43/43 ✅ | `ScreenshotM6Test` (7 tests → 10 images in `docs/screenshots/m6`) |
+
+Cloud paths (Gemini answers, embeddings) are tested only with fake HTTP replies and fake generators — never against the live API.
+Flaky fix during verification: `ScreenshotM6Test.m07_connections` failed once in a full run (timeout) because the item screen's related list loads asynchronously and shifted the “See connections” button; the test now waits for that list. It then passed 3/3 standalone runs and in the final full run.
+
+## 2. Local builds and static checks (build sandbox)
+- Lint: `:app:lintDebug`, `:core:data:lintDebug` — 0 errors ✅ (23 warnings in app, pre-existing kinds).
+- `:app:assembleDebug` (signed with the owner's local, untracked debug key) and `:app:assembleRelease` (unsigned) — both OK ✅ (`app-debug.apk` 0.6.0-m6-debug, `app-release-unsigned.apk` 0.6.0-m6).
+- CI (GitHub Actions, `.github/workflows/android.yml`): tests → lint → screenshots → debug + release APKs; artifacts
+  `pkos-<run>-debug-apk`, `pkos-<run>-release-unsigned-apk`, `pkos-<run>-screenshots`, `pkos-<run>-test-and-lint-reports`.
+  CI signs debug with the standard Android debug key; no signing key or secret is stored in GitHub.
+
+## 3. Real-device verification (NOT yet done — owner, on the phone)
+Install the debug APK (`com.pkos.app.debug`, version 0.6.0-m6-debug). None of the steps below has been performed yet.
+
+### A. Reminder notifications (opt-in)
+1. Settings → Knowledge tools: confirm *Forgotten knowledge reminders* is **off** on a fresh install.
+2. A reminder is only for an important item (pinned, high/critical priority, *To learn* or *To review*) not opened for 30 days. On a fresh library no item qualifies yet, so steps 4–5 can only be checked after 30 days of real use; steps 1, 3 and 6 can be checked now.
+3. Switch reminders **on** → on Android 13+ the notification-permission prompt appears. Allow it.
+4. The check runs once a day (WorkManager, first run about a day after switching on; there is no built-in “run now” button). Expected: one quiet “A save worth revisiting” notification; tapping it opens that item.
+5. Deny the permission (or turn reminders off) → no notification appears; Home shows no “Rediscover” section while off.
+6. Pass if: off by default, permission asked only when switched on, at most one notification per run, the same item does not come back before the chosen interval.
+
+### B. Export via the system file picker (SAF)
+1. Settings → Data → Export → keep *Include local-only items* **off**, *Include files* on → *Create export file*.
+2. Choose Downloads (and once Google Drive in the picker) → save `pkos-export-<date>.zip`.
+3. Expected message: “Export finished: N items, M files, K local-only items left out”.
+4. Open the ZIP in a file manager: `pkos-export.json`, `items.csv`, `markdown/`, `attachments/`, `integrity-report.json`.
+5. Open `items.csv` in Google Sheets/Excel (Bengali text must display correctly), a `.md` file in a notes app, and check that no local-only item and no token/key text appears anywhere.
+6. Cancel the picker once → nothing is written; the library is unchanged.
+7. *Check now* (integrity) → “All good …”.
+
+### C. Gemini integration (owner's own free-tier key)
+1. Settings → AI settings: save the key; Settings → *Cloud AI* on; Knowledge tools → *Search by meaning* on.
+2. Save 2–3 new normal items and wait for organizing (embeddings are made after processing, 10 per run).
+3. Search a synonym that is not in the text (e.g. “vehicle” for a “car” note) → result with the “Similar meaning” badge.
+4. Ask a question answered by those items → card “AI answer · from your items” with [n] sources that open the item.
+5. Mark one item *local-only*, ask about it → it must not appear in a cloud answer; the note “1 local-only item(s) were not sent” appears.
+6. Ask something not in the library → “No answer found in your saved knowledge”.
+7. Turn Cloud AI off or airplane mode → search and Ask still work (on-phone answer). No paid service is used at any point.
+
+Still pending from earlier milestones: M2 floating capture, M4 live Notion write, M5 real Drive backup + clean-install restore.

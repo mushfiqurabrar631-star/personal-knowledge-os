@@ -14,7 +14,7 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 | R-08 | Offline support | 🟡 | Capture, extraction, OCR, local classification, search offline (tested); Notion queue waits for network (WorkManager constraint); backup queue in M5 |
 | R-09 | No silent paid usage | ✅ | Cloud AI off by default, owner key only, quota/429 → local fallback, never paid |
 | R-10 | Export & recovery | 🟡 | M6: zip export (JSON/CSV/Markdown/attachments + SHA-256 report, local-only opt-in, no secrets) + local integrity check, tested; recovery = M5 encrypted restore. No export-zip import. Real-phone file-picker check pending |
-| R-11 | 10 advanced features | 🟡 | M6: all 10 implemented & tested (docs/m6-report.md). Limits: offline “meaning” = related words + spelling (vectors only with cloud key), graph is per-item, chat single-turn; reminders and cloud paths need phone verification |
+| R-11 | 10 advanced features | 🟡 | M6: all 10 implemented & tested (docs/m6-report.md). Limits: offline “meaning” = related words + spelling (vectors only with cloud key), graph is per-item, chat single-turn; reminders, SAF export and Gemini paths not yet verified on a phone |
 | R-12 | Premium UX | 🟡 | M1 shell done: navigation, onboarding, 10 screens, design system, bn/en, dark mode, large font; 24 screenshots, 17 UI tests |
 
 ## Build environment
@@ -23,6 +23,9 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 - No emulator (no KVM): UI verified with Robolectric Compose tests and Roborazzi screenshots; device install by owner.
 
 ## Last verified checkpoint
+2026-11-22 02:58 (+06) — M6 verification, v0.6.0-m6, clean build: :core:notion 56/56, :core:data 93/93 (incl. migration v1→v6),
+:app 53/53, screenshots 43/43, lint 0 errors, assembleDebug + assembleRelease OK. Real-device M6 checks not done yet (docs/m6-report.md §3).
+
 2026-11-22 — M6 search & advanced features (DB v6): :core:notion 56/56, :core:data 93/93, :app 53/53, screenshots 43/43
 (M6: 10 images), lint 0 errors, debug + release build. Report: docs/m6-report.md.
 

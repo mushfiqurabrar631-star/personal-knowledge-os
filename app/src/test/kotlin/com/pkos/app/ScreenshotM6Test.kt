@@ -39,7 +39,7 @@ class ScreenshotM6Test {
     @get:Rule val rule = createAndroidComposeRule<ComponentActivity>()
     private val dir = (System.getProperty("pkos.screenshots.dir") ?: "build/screenshots/m1").replace("m1", "m6")
     private fun shot(name: String) { rule.waitForIdle(); captureScreenRoboImage("$dir/$name.png") }
-    private fun waitFor(m: SemanticsMatcher) = rule.waitUntil(8_000) { rule.onAllNodes(m, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+    private fun waitFor(m: SemanticsMatcher) = rule.waitUntil(20_000) { rule.onAllNodes(m, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
     private fun s(id: Int) = rule.activity.getString(id)
 
     @Before fun wm() = WorkManagerTestInitHelper.initializeTestWorkManager(rule.activity, Configuration.Builder().setExecutor(SynchronousExecutor()).build())
@@ -96,8 +96,9 @@ class ScreenshotM6Test {
         seeded()
         rule.onNodeWithTag("tab_inbox").performClick(); waitFor(hasText("Kotlin Flow basics"))
         rule.onAllNodes(hasText("Kotlin Flow basics"), useUnmergedTree = true)[0].performClick(); waitFor(hasTestTag("item_detail"))
+        waitFor(hasTestTag("item_related")) // related list loads async and moves the buttons; wait before scrolling/clicking
         rule.onNodeWithTag("item_connections").performScrollTo(); shot("m07_item_related_connections")
-        rule.onNodeWithTag("item_connections").performClick(); waitFor(hasTestTag("graph_canvas")); shot("m08_knowledge_graph")
+        rule.onNodeWithTag("item_connections").performClick(); waitFor(hasTestTag("connections_screen")); waitFor(hasTestTag("graph_canvas")); shot("m08_knowledge_graph")
     }
 
     @Test fun m09_exportAndSettings() {
