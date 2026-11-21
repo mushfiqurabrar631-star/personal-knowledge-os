@@ -332,7 +332,7 @@ data class AiRunEntity(
 @androidx.room.Fts4(tokenizer = androidx.room.FtsOptions.TOKENIZER_UNICODE61, notIndexed = ["item_id", "indexed_at"])
 @Entity(tableName = "knowledge_fts")
 data class KnowledgeFtsEntity(
-    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "rowid") val rowId: Int = 0,
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "rowid") val rowId: Long = 0,
     @ColumnInfo(name = "item_id") val itemId: String,
     @ColumnInfo(name = "indexed_at") val indexedAt: Long,
     val title: String,

@@ -126,10 +126,14 @@ fun PkosApp(
         snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar, Modifier.testTag("snackbar")) },
         bottomBar = {
             if (showBottomBar) {
+                // Labels are capped at 1.3× font so five short labels still fit; TalkBack reads them in full (M7).
+                val d = androidx.compose.ui.platform.LocalDensity.current
+                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density, minOf(d.fontScale, 1.3f))) {
                 NavigationBar(Modifier.selectableGroup().testTag("bottom_bar")) {
                     leftTabs.forEach { TabItem(it, destination.hierarchy.any { d -> d.hasRoute(it.routeClass) }, badge = if (it.routeClass == InboxRoute::class) counts?.inbox else null) { inboxFilter = InboxFilter.ALL; openTab(it.route) } }
                     CaptureButton { showCapture = true }
                     rightTabs.forEach { TabItem(it, destination.hierarchy.any { d -> d.hasRoute(it.routeClass) }, badge = null) { openTab(it.route) } }
+                }
                 }
             }
         },
@@ -256,7 +260,7 @@ private fun RowScope.CaptureButton(onClick: () -> Unit) {
             ) {
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, null, modifier = Modifier.size(28.dp)) }
             }
-            Text(label, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Visible, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

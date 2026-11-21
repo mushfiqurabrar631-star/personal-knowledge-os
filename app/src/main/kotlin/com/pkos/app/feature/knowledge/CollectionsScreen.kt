@@ -151,12 +151,7 @@ fun CollectionEditorRoute(id: String?, smart: Boolean, onDone: () -> Unit) {
     ToolScaffold(stringResource(if (isSmart) R.string.collection_new_smart else R.string.collection_new_manual), onDone, "collection_editor") {
         item { OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.collection_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("collection_name")) }
         if (isSmart) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(if (matchAll) R.string.collection_match_all else R.string.collection_match_any), Modifier.weight(1f))
-                    Switch(matchAll, { matchAll = it }, modifier = Modifier.testTag("collection_match_all"))
-                }
-            }
+            item { ToggleRow(stringResource(if (matchAll) R.string.collection_match_all else R.string.collection_match_any), null, matchAll, { matchAll = it }, "collection_match_all") }
             itemsIndexed(conds) { i, cnd -> ConditionRow(cnd, data, { conds[i] = it }, { conds.removeAt(i) }, i) }
             item { OutlinedButton(onClick = { conds += RuleCondition(RuleField.TAG, "") }, modifier = Modifier.testTag("collection_add_rule")) { Text(stringResource(R.string.collection_add_rule)) } }
         }
@@ -185,7 +180,7 @@ private fun ConditionRow(c: RuleCondition, data: EditorData, onChange: (RuleCond
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
             DropdownChip(fieldLabel(c.field), null as RuleField?, RuleField.entries, { fieldLabel(it) }, { f -> if (f != null) onChange(RuleCondition(f, if (f == RuleField.PINNED) "true" else "", c.negate)) }, "rule_field_$index")
             FilterChip(selected = c.negate, onClick = { onChange(c.copy(negate = !c.negate)) }, label = { Text(stringResource(R.string.collection_rule_not)) }, modifier = Modifier.testTag("rule_not_$index"))
-            IconButton(onClick = onRemove) { Icon(Icons.Outlined.Close, null) }
+            IconButton(onClick = onRemove, modifier = Modifier.testTag("rule_remove_$index")) { Icon(Icons.Outlined.Close, stringResource(R.string.collection_remove_rule)) }
         }
         val label = stringResource(R.string.collection_value)
         val set = { v: String? -> onChange(c.copy(value = v ?: "")) }
@@ -196,7 +191,7 @@ private fun ConditionRow(c: RuleCondition, data: EditorData, onChange: (RuleCond
             RuleField.PRIORITY -> DropdownChip(label, ItemPriority.entries.firstOrNull { it.name == c.value }, ItemPriority.entries, { priorityLabel(it) }, { set(it?.name) }, "rule_value_$index")
             RuleField.TYPE -> DropdownChip(label, ContentType.entries.firstOrNull { it.name == c.value }, ContentType.entries, { typeLabel(it) }, { set(it?.name) }, "rule_value_$index")
             RuleField.PLATFORM -> DropdownChip(label, SourcePlatform.entries.firstOrNull { it.name == c.value }, SourcePlatform.entries, { it.name.lowercase() }, { set(it?.name) }, "rule_value_$index")
-            RuleField.PINNED -> Switch(c.value == "true", { set(it.toString()) })
+            RuleField.PINNED -> ToggleRow(fieldLabel(RuleField.PINNED), null, c.value == "true", { set(it.toString()) }, "rule_pinned_$index")
             RuleField.TAG, RuleField.CREATED_WITHIN_DAYS -> OutlinedTextField(
                 c.value, { v -> set(if (c.field == RuleField.CREATED_WITHIN_DAYS) v.filter(Char::isDigit).take(4) else v.trim().removePrefix("#")) },
                 label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("rule_text_$index"),

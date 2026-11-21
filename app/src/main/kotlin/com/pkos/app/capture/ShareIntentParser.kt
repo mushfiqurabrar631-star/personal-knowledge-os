@@ -24,7 +24,9 @@ object ShareIntentParser {
             Intent.ACTION_SEND -> listOfNotNull(streamExtra(intent))
             else -> streamListExtra(intent)
         } + clipUris(intent)
-        val distinct = uris.distinct()
+        // Only content:// URIs granted by the sending app. file:// (or any other scheme) is refused: an exported
+        // share target must never be tricked into reading PKOS's own private files (database, keys, attachments).
+        val distinct = uris.distinct().filter(::isAllowedStream)
         // text/uri-list without EXTRA_TEXT: use the clip text
         val clipText = if (text == null) intent.clipData?.let { c -> (0 until c.itemCount).mapNotNull { c.getItemAt(it).text?.toString() }.joinToString("\n") }?.takeIf { it.isNotBlank() } else null
         val files = distinct.map { uri -> fileFor(uri, resolver, intent.type) }
@@ -48,6 +50,8 @@ object ShareIntentParser {
             open = { resolver.openInputStream(uri) ?: throw FileNotFoundException("No stream for shared item") },
         )
     }
+
+    fun isAllowedStream(uri: Uri): Boolean = uri.scheme.equals(ContentResolver.SCHEME_CONTENT, ignoreCase = true)
 
     @Suppress("DEPRECATION")
     private fun streamExtra(intent: Intent): Uri? =

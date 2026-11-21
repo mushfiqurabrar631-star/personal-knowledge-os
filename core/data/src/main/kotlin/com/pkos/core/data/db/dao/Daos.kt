@@ -448,11 +448,20 @@ data class IdText(val id: String, @ColumnInfo(name = "raw_text") val rawText: St
 @Dao
 interface FeatureDao {
     // --- full-text index ---
-    @Query("SELECT k.id FROM knowledge_items k LEFT JOIN knowledge_fts f ON f.item_id = k.id WHERE f.item_id IS NULL OR k.updated_at > f.indexed_at")
+    // FTS row ↔ item are joined on rowid (the FTS row is stored with the item's own rowid). item_id is not indexed in
+    // FTS4, so joining or deleting by item_id scans the whole index for every item: O(n²), ~20 s at 5 000 items (M7).
+    @Query("SELECT k.id FROM knowledge_items k LEFT JOIN knowledge_fts f ON f.rowid = k.rowid WHERE k.deleted_at IS NULL AND (f.rowid IS NULL OR f.item_id != k.id OR k.updated_at > f.indexed_at)")
     suspend fun staleIndexIds(): List<String>
 
-    @Query("DELETE FROM knowledge_fts WHERE item_id = :id")
-    suspend fun deleteFts(id: String)
+    @Query("SELECT rowid FROM knowledge_items WHERE id = :id")
+    suspend fun itemRowId(id: String): Long?
+
+    @Query("DELETE FROM knowledge_fts WHERE rowid = :rowId")
+    suspend fun deleteFtsRow(rowId: Long)
+
+    /** Drops index rows of deleted items and rows written by the first v6 indexer (random rowids). */
+    @Query("DELETE FROM knowledge_fts WHERE rowid NOT IN (SELECT f.rowid FROM knowledge_fts f JOIN knowledge_items k ON k.rowid = f.rowid AND k.id = f.item_id AND k.deleted_at IS NULL)")
+    suspend fun pruneFts(): Int
 
     @Insert
     suspend fun insertFts(row: com.pkos.core.data.db.entity.KnowledgeFtsEntity)
@@ -461,6 +470,9 @@ interface FeatureDao {
     suspend fun ftsMatch(match: String, limit: Int): List<String>
 
     // --- embeddings ---
+    @Query("DELETE FROM embeddings WHERE knowledge_id = :id")
+    suspend fun deleteEmbeddings(id: String)
+
     @Upsert
     suspend fun upsertEmbedding(e: com.pkos.core.data.db.entity.EmbeddingEntity)
 

@@ -57,6 +57,17 @@ class ExportService(private val db: PkosDatabase, private val attachmentsRoot: F
                 zip.putNextEntry(ZipEntry(name)); zip.write(bytes); zip.closeEntry()
                 sums[name] = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }; files++
             }
+            // Attachments are streamed (64 KiB buffer) and hashed on the way: a large video never has to fit in memory.
+            fun putFile(name: String, file: File) {
+                val md = MessageDigest.getInstance("SHA-256")
+                zip.putNextEntry(ZipEntry(name))
+                file.inputStream().buffered(1 shl 16).use { input ->
+                    val buf = ByteArray(1 shl 16)
+                    while (true) { val n = input.read(buf); if (n < 0) break; md.update(buf, 0, n); zip.write(buf, 0, n) }
+                }
+                zip.closeEntry()
+                sums[name] = md.digest().joinToString("") { "%02x".format(it) }; files++
+            }
             fun topicPath(i: KnowledgeItemEntity) = listOfNotNull(i.categoryId?.let(cats::get), i.topicId?.let { topics[it]?.name }, i.subtopicId?.let { topics[it]?.name })
 
             val json = JSONArray(items.map { i ->
@@ -101,7 +112,7 @@ class ExportService(private val db: PkosDatabase, private val attachmentsRoot: F
             var attCount = 0
             if (options.includeAttachments) atts.distinctBy { it.localPath }.forEach { a ->
                 val f = File(attachmentsRoot, a.localPath)
-                if (f.exists()) { put("attachments/" + f.name, f.readBytes()); attCount++ }
+                if (f.exists()) { putFile("attachments/" + f.name, f); attCount++ }
             }
             val report = JSONObject().put("generated_at", iso(clock())).put("items", items.size).put("attachments", attCount)
                 .put("skipped_local_only", all.size - items.size).put("secrets_included", false)

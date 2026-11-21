@@ -594,4 +594,10 @@
     <string name="settings_reminders">ভুলে যাওয়া জ্ঞান মনে করানো</string>
     <string name="settings_reminders_body">ডিফল্টভাবে বন্ধ। চালু করলে অনেকদিন না খোলা গুরুত্বপূর্ণ সেভ মাঝে মাঝে একটি নীরব নোটিফিকেশনে দেখাবে।</string>
     <string name="settings_reminder_interval">প্রতিটি আইটেম আবার মনে করাবে: %1$d দিন পর</string>
+    <string name="item_local_only">শুধু এই ফোনে রাখুন</string>
+    <string name="item_allow_cloud">ক্লাউড AI ও Notion-এ পাঠানোর অনুমতি দিন</string>
+    <string name="item_privacy">গোপনীয়তা</string>
+    <string name="item_privacy_local">শুধু এই ফোনে—ক্লাউড AI বা Notion-এ যাবে না</string>
+    <string name="export_private_warning">সতর্কতা: এক্সপোর্ট ফাইলটি এনক্রিপ্ট করা নয়। “শুধু ফোনে” রাখা ব্যক্তিগত আইটেমও এতে থাকবে—ফাইলটি কোথায় রাখছেন বা কাকে দিচ্ছেন খেয়াল রাখুন।</string>
+    <string name="collection_remove_rule">নিয়মটি সরান</string>
 </resources>

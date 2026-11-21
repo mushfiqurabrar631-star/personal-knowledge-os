@@ -260,17 +260,26 @@ private fun ActionBanner(count: Int, onClick: () -> Unit) {
 private fun CaptureCard(onCapture: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.padding(horizontal = Spacing.screen).fillMaxWidth()) {
         Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.home_capture_title), style = MaterialTheme.typography.titleLarge)
-                    Text(stringResource(R.string.home_capture_body), style = MaterialTheme.typography.bodyMedium)
-                }
-                Spacer(Modifier.width(Spacing.m))
+            // Large font or a narrow phone: the button goes under the text so the title never breaks mid-word (M7).
+            val stack = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f || androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 360
+            val button = @Composable {
                 Button(onClick = onCapture, shape = MaterialTheme.shapes.small, modifier = Modifier.heightIn(min = 48.dp).testTag("home_capture")) {
                     Icon(Icons.Outlined.Add, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(Spacing.s))
                     Text(stringResource(R.string.home_capture_button))
                 }
+            }
+            if (stack) {
+                Text(stringResource(R.string.home_capture_title), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.home_capture_body), style = MaterialTheme.typography.bodyMedium)
+                button()
+            } else Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.home_capture_title), style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.home_capture_body), style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(Modifier.width(Spacing.m))
+                button()
             }
             Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f), shape = MaterialTheme.shapes.medium) {
                 Row(Modifier.fillMaxWidth().padding(Spacing.m), verticalAlignment = Alignment.CenterVertically) {

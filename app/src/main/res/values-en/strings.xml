@@ -575,4 +575,10 @@
     <string name="settings_reminders">Forgotten knowledge reminders</string>
     <string name="settings_reminders_body">Off by default. When on, an important save you haven\'t opened in a while is shown now and then in one quiet notification.</string>
     <string name="settings_reminder_interval">Remind about the same item again after: %1$d days</string>
+    <string name="item_local_only">Keep on this phone only</string>
+    <string name="item_allow_cloud">Allow cloud AI and Notion</string>
+    <string name="item_privacy">Privacy</string>
+    <string name="item_privacy_local">This phone only — never sent to cloud AI or Notion</string>
+    <string name="export_private_warning">Warning: the export file is not encrypted. Your private (local-only) items will be in it — be careful where you store or share it.</string>
+    <string name="collection_remove_rule">Remove rule</string>
 </resources>

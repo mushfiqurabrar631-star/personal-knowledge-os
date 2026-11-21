@@ -15,7 +15,7 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 | R-09 | No silent paid usage | ✅ | Cloud AI off by default, owner key only, quota/429 → local fallback, never paid |
 | R-10 | Export & recovery | 🟡 | M6: zip export (JSON/CSV/Markdown/attachments + SHA-256 report, local-only opt-in, no secrets) + local integrity check, tested; recovery = M5 encrypted restore. No export-zip import. Real-phone file-picker check pending |
 | R-11 | 10 advanced features | 🟡 | M6: all 10 implemented & tested (docs/m6-report.md). Limits: offline “meaning” = related words + spelling (vectors only with cloud key), graph is per-item, chat single-turn; reminders, SAF export and Gemini paths not yet verified on a phone |
-| R-12 | Premium UX | 🟡 | M1 shell done: navigation, onboarding, 10 screens, design system, bn/en, dark mode, large font; 24 screenshots, 17 UI tests |
+| R-12 | Premium UX | 🟡 | M1–M7: design system, bn/en parity test, dark mode, WCAG AA contrast test, 48 dp + label audit on all main screens, 2× font on 320 dp audit; real TalkBack check pending |
 
 ## Build environment
 - Android SDK installed (platforms android-37.2, build-tools 37.0.0); Gradle 9.9.2 wrapper; AGP 9.5.1; Kotlin 2.4.21.
@@ -23,6 +23,10 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 - No emulator (no KVM): UI verified with Robolectric Compose tests and Roborazzi screenshots; device install by owner.
 
 ## Last verified checkpoint
+2026-11-22 — M7 hardening (v0.7.0-m7, DB v6): :core:notion 56/56, :core:data 97/97, :app 58/58, screenshots 47/47, lint 0 errors,
+debug + release OK. Fixed: share target file:// read, O(n²) search index, export memory, per-item local-only, a11y labels/large font.
+Acceptance checklist (spec 13.2) pending on the phone. Report: docs/m7-report.md.
+
 2026-11-22 02:58 (+06) — M6 verification, v0.6.0-m6, clean build: :core:notion 56/56, :core:data 93/93 (incl. migration v1→v6),
 :app 53/53, screenshots 43/43, lint 0 errors, assembleDebug + assembleRelease OK. Real-device M6 checks not done yet (docs/m6-report.md §3).
 

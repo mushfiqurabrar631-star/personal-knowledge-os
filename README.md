@@ -5,7 +5,7 @@ organized by hybrid AI → encrypted Google Drive backup → synced to the owner
 Master Database. Specification: *Personal Knowledge OS Master Build Specification v1.0*.
 
 ## Status
-Current version: **0.6.0-m6** (`versionName`; debug build shows `0.6.0-m6-debug`, app id `com.pkos.app.debug`).
+Current version: **0.7.0-m7** (`versionName`; debug build shows `0.7.0-m7-debug`, app id `com.pkos.app.debug`).
 
 See [CHECKLIST.md](CHECKLIST.md). Done: M1 app shell ([report](docs/m1-report.md)) · M2 capture ([report](docs/m2-report.md)) ·
 M3 processing ([report](docs/m3-report.md)) · M4 Notion integration ([report](docs/m4-report.md)) ·
@@ -13,6 +13,7 @@ M3 processing ([report](docs/m3-report.md)) · M4 Notion integration ([report](d
 **M6 search & advanced features — automated tests and local builds pass; real-device checks (reminders, export picker, Gemini) not yet done** ([report](docs/m6-report.md#3-real-device-verification-not-yet-done--owner-on-the-phone)): offline FTS + meaning search, cited Ask,
 knowledge graph, topic de-duplication, recommendations, timeline, confirm-first tasks, opt-in reminders, smart collections, zip export + integrity check.
 Limitations: single-turn Ask, per-item graph only, no import of the export ZIP (restore = M5 Drive backup).
+**M7 hardening — automated audits and fixes done; spec §13.2 acceptance checklist still needs the real phone** ([report](docs/m7-report.md)).
 
 ## Modules
 | Module | Type | Purpose |
@@ -30,7 +31,7 @@ echo "sdk.dir=/path/to/android-sdk" > local.properties
 ./gradlew :app:assembleRelease               # unsigned → app/build/outputs/apk/release/app-release-unsigned.apk
 ./gradlew :core:notion:test :core:data:testDebugUnitTest :app:testDebugUnitTest
 ./gradlew :app:lintDebug :core:data:lintDebug
-./gradlew :app:recordRoborazziDebug          # screenshots → docs/screenshots/m1..m6/
+./gradlew :app:recordRoborazziDebug          # screenshots → docs/screenshots/m1..m7/
 ```
 Offline check of the Notion core only: `./scripts/verify-core-notion.sh`.
 

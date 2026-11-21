@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HTTPS only (spec §10 Network). Only the system CA store is trusted; user-added CAs are not, so a profile
+     installed by someone else cannot intercept Notion, Google Drive or Gemini traffic. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

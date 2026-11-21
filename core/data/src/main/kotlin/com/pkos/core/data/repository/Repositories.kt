@@ -125,6 +125,20 @@ class KnowledgeRepository(private val db: PkosDatabase, private val clock: () ->
     }
 
     /**
+     * Per-item privacy (spec §10 "local-only per item"). LOCAL_ONLY items are never sent to cloud AI, embeddings or
+     * Notion; any cloud-made embedding of the item is dropped. Pages already in Notion are left as they are.
+     */
+    suspend fun setLocalOnly(id: String, localOnly: Boolean) {
+        val item = dao.get(id) ?: return
+        val scope = if (localOnly) com.pkos.core.data.model.PrivacyScope.LOCAL_ONLY else com.pkos.core.data.model.PrivacyScope.NORMAL
+        if (item.privacyScope == scope) return
+        db.withTransaction {
+            dao.update(item.copy(privacyScope = scope, updatedAt = clock()))
+            if (localOnly) db.featureDao().deleteEmbeddings(id)
+        }
+    }
+
+    /**
      * Soft delete: hidden everywhere in the app, kept in the database (and in backups) so nothing is destroyed;
      * the Notion page is never deleted (spec: never delete remote data automatically).
      */

@@ -1,5 +1,7 @@
 package com.pkos.core.data.features
 
+import androidx.room.withTransaction
+
 import com.pkos.core.data.db.PkosDatabase
 import com.pkos.core.data.db.entity.EmbeddingEntity
 import com.pkos.core.data.db.entity.KnowledgeFtsEntity
@@ -55,20 +57,22 @@ class SearchService(private val db: PkosDatabase, private val clock: () -> Long 
     private val dao get() = db.featureDao()
 
     /** Brings the FTS index up to date (only items changed since they were indexed). */
-    suspend fun refreshIndex(): Int {
+    suspend fun refreshIndex(): Int = db.withTransaction {
+        dao.pruneFts()
         val stale = dao.staleIndexIds()
-        if (stale.isEmpty()) return 0
+        if (stale.isEmpty()) return@withTransaction 0
         val tags = dao.itemTags().groupBy({ it.itemId }, { it.name })
         val topics = dao.topics().associateBy { it.id }
         val cats = db.categoryDao().all().associate { it.id to it.name }
         for (id in stale) {
-            dao.deleteFts(id)
+            val rowId = dao.itemRowId(id) ?: continue
+            dao.deleteFtsRow(rowId)
             val i = db.knowledgeDao().get(id) ?: continue
             if (i.deletedAt != null) continue
             val ocr = db.attachmentDao().forItem(id).mapNotNull { it.extractedText }.joinToString(" ")
             dao.insertFts(
                 KnowledgeFtsEntity(
-                    itemId = id, indexedAt = maxOf(i.updatedAt, clock()), title = i.title,
+                    rowId = rowId, itemId = id, indexedAt = maxOf(i.updatedAt, clock()), title = i.title,
                     content = listOfNotNull(i.rawText, i.summary, i.userNote, ocr).joinToString("\n").take(100_000),
                     tags = tags[id].orEmpty().joinToString(" "),
                     topics = listOfNotNull(i.categoryId?.let { cats[it] }, i.topicId?.let { topics[it]?.name }, i.subtopicId?.let { topics[it]?.name }).joinToString(" "),
@@ -76,7 +80,7 @@ class SearchService(private val db: PkosDatabase, private val clock: () -> Long 
                 ),
             )
         }
-        return stale.size
+        stale.size
     }
 
     suspend fun search(

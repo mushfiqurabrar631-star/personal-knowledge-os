@@ -29,6 +29,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.MoreVert
@@ -108,6 +110,7 @@ class ItemDetailViewModel(private val container: AppContainer, private val id: S
     fun syncNow() { viewModelScope.launch { container.requestNotionSync(id) } }
     fun setArchived(on: Boolean) { viewModelScope.launch { container.knowledge.setArchived(id, on); container.requestNotionSync(id) } }
     /** Soft delete; the work runs outside this screen's scope so leaving the screen cannot cancel it. */
+    fun setLocalOnly(on: Boolean) { viewModelScope.launch { container.knowledge.setLocalOnly(id, on) } }
     fun delete() { container.appScope.launch { container.knowledge.delete(id) } }
     val categories: StateFlow<List<com.pkos.core.data.db.entity.CategoryEntity>> =
         container.categories.all().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -137,6 +140,7 @@ fun ItemDetailRoute(id: String, onBack: () -> Unit, onEdit: (String) -> Unit = {
             onEdit = { onEdit(id) },
             onArchive = vm::setArchived,
             onDelete = { vm.delete(); onBack() },
+            onLocalOnly = vm::setLocalOnly,
         ),
     )
 }
@@ -154,6 +158,7 @@ data class ItemActions(
     val onArchive: (Boolean) -> Unit = {},
     val onDelete: () -> Unit = {},
     val onSyncNow: () -> Unit = {},
+    val onLocalOnly: (Boolean) -> Unit = {},
 )
 
 data class NotionItemState(
@@ -201,7 +206,7 @@ fun ItemDetailScreen(
                             )
                         }
                     }
-                    if (ready != null) ItemMenu(ready.status == com.pkos.core.data.model.ItemStatus.ARCHIVED, actions)
+                    if (ready != null) ItemMenu(ready.status == com.pkos.core.data.model.ItemStatus.ARCHIVED, actions, ready.privacyScope == com.pkos.core.data.model.PrivacyScope.LOCAL_ONLY)
                 },
             )
         },
@@ -291,6 +296,7 @@ fun ItemDetailScreen(
                             item.purpose?.takeIf { it.isNotBlank() }?.let { Labeled(stringResource(R.string.item_purpose), purposeLabels(it)) }
                             d.topic?.let { Labeled(stringResource(R.string.item_topic), it.name + (d.subtopic?.let { s -> " › " + s.name } ?: "")) }
                             Labeled(stringResource(R.string.item_status), itemStatusLabel(item.status))
+                            if (item.privacyScope == com.pkos.core.data.model.PrivacyScope.LOCAL_ONLY) Labeled(stringResource(R.string.item_privacy), stringResource(R.string.item_privacy_local))
                             if (d.tags.isNotEmpty()) {
                                 Text(stringResource(R.string.item_tags), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -534,7 +540,7 @@ fun itemStatusLabel(s: com.pkos.core.data.model.ItemStatus): String = stringReso
 
 /** Archive / delete (delete asks first; it is a soft delete and never touches Notion). */
 @Composable
-private fun ItemMenu(archived: Boolean, actions: ItemActions) {
+private fun ItemMenu(archived: Boolean, actions: ItemActions, localOnly: Boolean = false) {
     var open by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     androidx.compose.foundation.layout.Box {
@@ -545,6 +551,12 @@ private fun ItemMenu(archived: Boolean, actions: ItemActions) {
                 leadingIcon = { Icon(if (archived) Icons.Outlined.Unarchive else Icons.Outlined.Archive, null) },
                 onClick = { open = false; actions.onArchive(!archived) },
                 modifier = Modifier.testTag("item_archive"),
+            )
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(stringResource(if (localOnly) R.string.item_allow_cloud else R.string.item_local_only)) },
+                leadingIcon = { Icon(if (localOnly) Icons.Outlined.Cloud else Icons.Outlined.PhoneAndroid, null) },
+                onClick = { open = false; actions.onLocalOnly(!localOnly) },
+                modifier = Modifier.testTag("item_local_only"),
             )
             androidx.compose.material3.DropdownMenuItem(
                 text = { Text(stringResource(R.string.item_delete)) },

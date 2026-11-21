@@ -5,6 +5,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -83,6 +87,7 @@ fun ExportScreen(
         item {
             Panel {
                 ToggleRow(stringResource(R.string.export_include_local), stringResource(R.string.export_include_local_body), includeLocal, onLocal, "export_local")
+                if (includeLocal) Text(stringResource(R.string.export_private_warning), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("export_private_warning"))
                 ToggleRow(stringResource(R.string.export_include_files), null, includeFiles, onFiles, "export_files")
                 Button(onClick = onExport, enabled = st != ExportState.Running, modifier = Modifier.testTag("export_run")) { Text(stringResource(R.string.export_run)) }
                 when (st) {
@@ -107,11 +112,15 @@ fun ExportScreen(
 
 @Composable
 fun ToggleRow(title: String, body: String?, checked: Boolean, on: (Boolean) -> Unit, tag: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    // One toggleable row: TalkBack reads the title + on/off, and the whole row (≥48dp) is the touch target.
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = checked, role = Role.Switch, onValueChange = on).testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             body?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        Switch(checked, on, modifier = Modifier.testTag(tag))
+        Switch(checked, onCheckedChange = null)
     }
 }
