@@ -1,3 +1,5 @@
+import java.util.Properties
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -8,6 +10,12 @@ plugins {
 }
 
 val screenshotsDir: String = rootProject.layout.projectDirectory.dir("docs/screenshots/m1").asFile.absolutePath
+
+// Debug signing key comes from local.properties (never committed). Without it, the standard Android debug key is used.
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val pkosDebugKeystore: File? = localProps.getProperty("pkos.debugKeystore")?.let { file(it) }?.takeIf { it.exists() }
 
 android {
     namespace = "com.pkos.app"
@@ -25,19 +33,19 @@ android {
     }
 
     signingConfigs {
-        // Shared, non-secret debug key so the Google OAuth Android client (package + SHA-1) stays valid for every
-        // debug build. Release builds are signed by the owner with their own key.
-        getByName("debug") {
-            storeFile = rootProject.file("keystore/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        if (pkosDebugKeystore != null) {
+            create("pkosDebug") {
+                storeFile = pkosDebugKeystore
+                storePassword = localProps.getProperty("pkos.debugKeystorePassword")
+                keyAlias = localProps.getProperty("pkos.debugKeyAlias")
+                keyPassword = localProps.getProperty("pkos.debugKeystorePassword")
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("debug")
+            if (pkosDebugKeystore != null) signingConfig = signingConfigs.getByName("pkosDebug")
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }

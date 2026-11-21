@@ -5,3 +5,8 @@ local.properties
 *.jks
 .idea/
 secrets.properties
+
+# Signing keys and their passwords never go to Git (M5 security fix)
+keystore/
+*.p12
+signing.properties
