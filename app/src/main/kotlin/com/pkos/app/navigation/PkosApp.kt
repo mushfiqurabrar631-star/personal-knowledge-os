@@ -184,7 +184,10 @@ fun PkosApp(
             composable<NotionSettingsRoute> { com.pkos.app.feature.settings.NotionSettingsRoute(onBack = { navController.popBackStack() }) }
             composable<AiSettingsRoute> { com.pkos.app.feature.settings.AiSettingsRoute(onBack = { navController.popBackStack() }) }
             composable<BackupSyncRoute> { BackupSyncRouteScreen(onBack = { navController.popBackStack() }) }
-            composable<ItemDetailRoute> { entry -> ItemDetailRouteScreen(entry.toRoute<ItemDetailRoute>().id, onBack = { navController.popBackStack() }) }
+            composable<ItemDetailRoute> { entry ->
+                ItemDetailRouteScreen(entry.toRoute<ItemDetailRoute>().id, onBack = { navController.popBackStack() }, onEdit = { navController.navigate(EditItemRoute(it)) })
+            }
+            composable<EditItemRoute> { entry -> com.pkos.app.feature.item.EditItemRoute(entry.toRoute<EditItemRoute>().id, onDone = { navController.popBackStack() }) }
         }
     }
     com.pkos.app.capture.CaptureFlow(visible = showCapture, onDismiss = { showCapture = false }) { result ->

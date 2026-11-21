@@ -22,6 +22,7 @@ data class AiResult(
     val confidence: Double,
     val needsReview: Boolean,
     val reviewReason: String?,
+    val subtopic: String? = null,
 )
 
 sealed interface ParsedAi {
@@ -64,6 +65,7 @@ object AiResultParser {
             val summary = str("summary", required = true, max = 1200).getOrThrow()
             val categoryName = str("main_category", required = false, max = 120).getOrThrow()
             val topic = str("topic", required = false, max = 120).getOrThrow()
+            val subtopic = str("subtopic", required = false, max = 120).getOrThrow()
             val typeRaw = str("content_type", required = true, max = 40).getOrThrow()?.lowercase()
             val type = TYPES[typeRaw] ?: return ParsedAi.Invalid("content_type '$typeRaw' not allowed")
             val purpose = list("purpose").getOrThrow().map { it.lowercase() }
@@ -91,7 +93,7 @@ object AiResultParser {
             }
             var review = needsReview
             if (categoryName != null && categoryId == null) { review = true; reason = reason ?: ReviewReason.UNKNOWN_CATEGORY }
-            ParsedAi.Valid(AiResult(title, summary, categoryId, topic, type, purpose.distinct(), tags, priority, status, confidence, review, reason))
+            ParsedAi.Valid(AiResult(title, summary, categoryId, topic, type, purpose.distinct(), tags, priority, status, confidence, review, reason, subtopic))
         } catch (e: IllegalArgumentException) {
             ParsedAi.Invalid(e.message ?: "invalid")
         }
@@ -105,7 +107,7 @@ object AiResultParser {
 
     fun toJson(r: AiResult, categories: Map<String, String>): String = JSONObject().apply {
         put("title", r.title); put("summary", r.summary); put("main_category", r.categoryId?.let { categories[it] } ?: JSONObject.NULL)
-        put("topic", r.topic ?: JSONObject.NULL); put("content_type", r.contentType?.name?.lowercase() ?: "other")
+        put("topic", r.topic ?: JSONObject.NULL); put("subtopic", r.subtopic ?: JSONObject.NULL); put("content_type", r.contentType?.name?.lowercase() ?: "other")
         put("purpose", JSONArray(r.purpose)); put("tags", JSONArray(r.tags)); put("priority", r.priority.name.lowercase())
         put("status", r.status.name.lowercase()); put("confidence", r.confidence); put("needs_review", r.needsReview)
         put("review_reason", r.reviewReason ?: JSONObject.NULL)

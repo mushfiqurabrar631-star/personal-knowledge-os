@@ -96,6 +96,11 @@ class CaptureRepository(
         try {
             val duplicateOf = db.withTransaction {
                 val dup = db.knowledgeDao().findDuplicate(hash, url, id)
+                    ?: item.rawText?.let { text ->
+                        // Near-duplicate (fuzzy) check over recent items; only a suggestion, both items are kept.
+                        val candidates = db.knowledgeDao().recentTexts(TextSimilarity.MIN_LENGTH, FUZZY_CANDIDATES).map { it.id to it.rawText }
+                        TextSimilarity.bestMatch(text, candidates)?.first
+                    }
                 db.knowledgeDao().insert(if (dup != null) item.copy(duplicateOfId = dup) else item)
                 db.captureSourceDao().insert(
                     CaptureSourceEntity(
@@ -141,6 +146,7 @@ class CaptureRepository(
     }
 
     companion object {
+        const val FUZZY_CANDIDATES = 300
         const val MIN_FREE_TEXT = 5L * 1024 * 1024
         const val MIN_FREE_FILES = 100L * 1024 * 1024
 

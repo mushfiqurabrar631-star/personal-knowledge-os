@@ -28,6 +28,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Unarchive
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -101,12 +106,15 @@ class ItemDetailViewModel(private val container: AppContainer, private val id: S
         )
     }
     fun syncNow() { viewModelScope.launch { container.requestNotionSync(id) } }
+    fun setArchived(on: Boolean) { viewModelScope.launch { container.knowledge.setArchived(id, on); container.requestNotionSync(id) } }
+    /** Soft delete; the work runs outside this screen's scope so leaving the screen cannot cancel it. */
+    fun delete() { container.appScope.launch { container.knowledge.delete(id) } }
     val categories: StateFlow<List<com.pkos.core.data.db.entity.CategoryEntity>> =
         container.categories.all().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 
 @Composable
-fun ItemDetailRoute(id: String, onBack: () -> Unit) {
+fun ItemDetailRoute(id: String, onBack: () -> Unit, onEdit: (String) -> Unit = {}) {
     val vm = pkosViewModel(key = "item-$id") { ItemDetailViewModel(it, id) }
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(id) { vm.markOpened() }
@@ -125,6 +133,9 @@ fun ItemDetailRoute(id: String, onBack: () -> Unit) {
             onKeepNotion = { vm.resolve(true) },
             onOverwriteNotion = { vm.resolve(false) },
             onSyncNow = vm::syncNow,
+            onEdit = { onEdit(id) },
+            onArchive = vm::setArchived,
+            onDelete = { vm.delete(); onBack() },
         ),
     )
 }
@@ -138,6 +149,9 @@ data class ItemActions(
     val onChangeCategory: (String) -> Unit = {},
     val onKeepNotion: () -> Unit = {},
     val onOverwriteNotion: () -> Unit = {},
+    val onEdit: () -> Unit = {},
+    val onArchive: (Boolean) -> Unit = {},
+    val onDelete: () -> Unit = {},
     val onSyncNow: () -> Unit = {},
 )
 
@@ -170,6 +184,12 @@ fun ItemDetailScreen(
                 title = {},
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.action_back)) } },
                 actions = {
+                    val ready = (state as? ItemUiState.Ready)?.detail?.item
+                    if (ready != null) {
+                        IconButton(onClick = actions.onEdit, modifier = Modifier.testTag("item_edit")) {
+                            Icon(Icons.Outlined.Edit, stringResource(R.string.item_edit))
+                        }
+                    }
                     val pinned = (state as? ItemUiState.Ready)?.detail?.item?.pinned
                     if (pinned != null) {
                         IconButton(onClick = { actions.onPin(!pinned) }, modifier = Modifier.testTag("item_pin")) {
@@ -179,6 +199,7 @@ fun ItemDetailScreen(
                             )
                         }
                     }
+                    if (ready != null) ItemMenu(ready.status == com.pkos.core.data.model.ItemStatus.ARCHIVED, actions)
                 },
             )
         },
@@ -266,7 +287,8 @@ fun ItemDetailScreen(
                         } else {
                             categoryName?.let { Labeled(stringResource(R.string.item_category), it) }
                             item.purpose?.takeIf { it.isNotBlank() }?.let { Labeled(stringResource(R.string.item_purpose), purposeLabels(it)) }
-                            d.topic?.let { Labeled(stringResource(R.string.item_topic), it.name) }
+                            d.topic?.let { Labeled(stringResource(R.string.item_topic), it.name + (d.subtopic?.let { s -> " › " + s.name } ?: "")) }
+                            Labeled(stringResource(R.string.item_status), itemStatusLabel(item.status))
                             if (d.tags.isNotEmpty()) {
                                 Text(stringResource(R.string.item_tags), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -492,5 +514,50 @@ private fun NotionConflictCard(n: NotionItemState, actions: ItemActions) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun itemStatusLabel(s: com.pkos.core.data.model.ItemStatus): String = stringResource(
+    when (s) {
+        com.pkos.core.data.model.ItemStatus.INBOX -> R.string.item_status_inbox
+        com.pkos.core.data.model.ItemStatus.TO_REVIEW -> R.string.item_status_to_review
+        com.pkos.core.data.model.ItemStatus.TO_LEARN -> R.string.item_status_to_learn
+        com.pkos.core.data.model.ItemStatus.IN_PROGRESS -> R.string.item_status_in_progress
+        com.pkos.core.data.model.ItemStatus.DONE -> R.string.item_status_done
+        com.pkos.core.data.model.ItemStatus.ARCHIVED -> R.string.item_status_archived
+    },
+)
+
+/** Archive / delete (delete asks first; it is a soft delete and never touches Notion). */
+@Composable
+private fun ItemMenu(archived: Boolean, actions: ItemActions) {
+    var open by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    androidx.compose.foundation.layout.Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.testTag("item_menu")) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.item_more)) }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(stringResource(if (archived) R.string.item_unarchive else R.string.item_archive)) },
+                leadingIcon = { Icon(if (archived) Icons.Outlined.Unarchive else Icons.Outlined.Archive, null) },
+                onClick = { open = false; actions.onArchive(!archived) },
+                modifier = Modifier.testTag("item_archive"),
+            )
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(stringResource(R.string.item_delete)) },
+                leadingIcon = { Icon(Icons.Outlined.Delete, null) },
+                onClick = { open = false; confirmDelete = true },
+                modifier = Modifier.testTag("item_delete"),
+            )
+        }
+    }
+    if (confirmDelete) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.item_delete_title)) },
+            text = { Text(stringResource(R.string.item_delete_body)) },
+            confirmButton = { Button(onClick = { confirmDelete = false; actions.onDelete() }, modifier = Modifier.testTag("item_delete_confirm")) { Text(stringResource(R.string.item_delete)) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.capture_dialog_cancel)) } },
+        )
     }
 }

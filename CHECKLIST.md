@@ -8,7 +8,7 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 | R-02 | Floating capture | 🟡 | Optional overlay bubble + QuickCaptureActivity, permission flow in Settings; needs on-device check (no emulator) |
 | R-03 | Local-first | ✅ | Save-first transaction, content-addressed files, DB v1→v4 AutoMigrations tested; network only for opt-in cloud AI / Notion |
 | R-04 | Hybrid AI | ✅ | Local rules always + optional Gemini (own key, Keystore), strict schema validation, repair retry, audit trail |
-| R-05 | Auto organization | ✅ | WorkManager pipeline: extract/PDF/OCR → classify → confidence policy → review UI; 13 engine tests |
+| R-05 | Auto organization | ✅ | WorkManager pipeline: extract/PDF/OCR → classify → confidence policy → review UI; Topic/Subtopic saved, fuzzy duplicates, owner edit/archive/delete (docs/m3-gaps-report.md) |
 | R-06 | Notion integration | 🟡 | Done & tested: OkHttp transport (MockWebServer, full engine over HTTP), Keystore token UI + live read-only check, Room mappings/journal/conflicts (DB v4), WorkManager sync (unique per item, network-only, retries), partial PATCH, conflict & adoption review UI, File Upload API (≤5 MB). Live schema re-read 2026-11-20 via Notion connector: 12/12 fields match. **Pending owner step: live write test on the phone with the real token** (api.notion.com is not reachable from the build sandbox) |
 | R-07 | Cloud backup | 🟡 | Built & tested: drive.file OAuth, visible folder, AES-256-GCM chunked archive (random nonces), PBKDF2 600k recovery key, consistent DB snapshot, SHA-256 checksums, manifest/versions, resumable upload, size+MD5 verification, GFS retention, quota warning, staged restore + preview + safety snapshot/rollback, WorkManager. **Pending: real Google Drive backup + clean-install restore on the phone** |
 | R-08 | Offline support | 🟡 | Capture, extraction, OCR, local classification, search offline (tested); Notion queue waits for network (WorkManager constraint); backup queue in M5 |
@@ -23,6 +23,9 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 - No emulator (no KVM): UI verified with Robolectric Compose tests and Roborazzi screenshots; device install by owner.
 
 ## Last verified checkpoint
+2026-11-22 — M3 gaps closed: :core:notion 56/56, :core:data 81/81, :app 46/46, screenshots 36/36, lint 0 errors,
+debug + release build. Report: docs/m3-gaps-report.md.
+
 2026-11-21 — M5 backup: build ✅, lint ✅ (warnings only), :core:notion 56/56, :core:data 73/73, :app 44/44,
 screenshots 36/36 (M5: 4 images). Report: docs/m5-report.md. Real-Drive verification pending (owner).
 

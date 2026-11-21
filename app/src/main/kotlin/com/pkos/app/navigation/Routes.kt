@@ -14,3 +14,4 @@ import kotlinx.serialization.Serializable
 @Serializable data object AiSettingsRoute
 @Serializable data object NotionSettingsRoute
 @Serializable data class ItemDetailRoute(val id: String)
+@Serializable data class EditItemRoute(val id: String)

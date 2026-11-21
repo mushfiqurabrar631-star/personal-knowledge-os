@@ -173,9 +173,18 @@ class ProcessingEngine(
         if (!mine("priority")) { updated = updated.copy(priority = r.priority); origins.put("priority", aiTag) }
         // Only a system-made title may be improved; anything the owner typed stays.
         if (r.title != null && origins.optString("title") == FieldOrigin.SYSTEM.name && !low) { updated = updated.copy(title = r.title); origins.put("title", aiTag) }
+        val topicCategory = updated.categoryId?.takeIf { it != StarterTaxonomy.UNSORTED }
+        val setTopic = !mine("topic") && !low && r.topic != null && topicCategory != null
+        if (setTopic) origins.put("topic", aiTag)
         updated = updated.copy(fieldOrigins = origins.toString())
-        val final = updated
+        var final = updated
         db.withTransaction {
+            // Topic / subtopic (spec R-05): reuse an existing topic of that name in the category, else create it.
+            if (setTopic) {
+                val topic = topicFor(topicCategory!!, null, r.topic!!)
+                val sub = r.subtopic?.let { topicFor(topicCategory, topic, it) }
+                final = final.copy(topicId = topic, subtopicId = sub)
+            }
             db.knowledgeDao().update(final)
             if (!mine("tags")) r.tags.forEach { name ->
                 val normalized = name.lowercase(Locale.ROOT).trim()
@@ -188,6 +197,14 @@ class ProcessingEngine(
             )
         }
         return state
+    }
+
+    private suspend fun topicFor(categoryId: String, parentId: String?, name: String): String {
+        val clean = name.trim().take(80)
+        db.topicDao().find(categoryId, parentId, clean)?.let { return it.id }
+        val id = UUID.randomUUID().toString()
+        db.topicDao().insert(com.pkos.core.data.db.entity.TopicEntity(id, categoryId, parentId, clean, isUserCreated = false, createdAt = clock()))
+        return id
     }
 
     private fun snapshot(i: KnowledgeItemEntity, provider: String) = JSONObject().apply {

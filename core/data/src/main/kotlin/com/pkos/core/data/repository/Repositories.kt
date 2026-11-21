@@ -1,5 +1,6 @@
 package com.pkos.core.data.repository
 
+import androidx.room.withTransaction
 import android.content.Context
 import com.pkos.core.data.db.PkosDatabase
 import com.pkos.core.data.db.dao.CategoryWithCounts
@@ -33,6 +34,7 @@ data class KnowledgeItemDetail(
     val versions: List<ItemVersionEntity>,
     val attachments: List<com.pkos.core.data.db.entity.AttachmentEntity> = emptyList(),
     val lastAiRun: com.pkos.core.data.db.entity.AiRunEntity? = null,
+    val subtopic: TopicEntity? = null,
 )
 
 class KnowledgeRepository(private val db: PkosDatabase, private val clock: () -> Long = System::currentTimeMillis) {
@@ -61,12 +63,15 @@ class KnowledgeRepository(private val db: PkosDatabase, private val clock: () ->
         if (item == null) return@flatMapLatest flowOf(null)
         combine(
             item.categoryId?.let { db.categoryDao().observe(it) } ?: flowOf(null),
-            item.topicId?.let { db.topicDao().observe(it) } ?: flowOf(null),
+            combine(
+                item.topicId?.let { db.topicDao().observe(it) } ?: flowOf(null),
+                item.subtopicId?.let { db.topicDao().observe(it) } ?: flowOf(null),
+            ) { t, st -> t to st },
             db.tagDao().observeForItem(id),
             db.captureSourceDao().observeForItem(id),
             combine(db.itemVersionDao().observeForItem(id), db.attachmentDao().observeForItem(id), db.aiRunDao().observeLatest(id)) { v, a, r -> Triple(v, a, r) },
-        ) { category, topic, tags, sources, (versions, attachments, run) ->
-            KnowledgeItemDetail(item, category, topic, tags, sources, versions, attachments, run)
+        ) { category, (topic, subtopic), tags, sources, (versions, attachments, run) ->
+            KnowledgeItemDetail(item, category, topic, tags, sources, versions, attachments, run, subtopic)
         }
     }
 
@@ -75,6 +80,62 @@ class KnowledgeRepository(private val db: PkosDatabase, private val clock: () ->
     suspend fun setNote(id: String, note: String?) = dao.setNote(id, note?.trim()?.takeIf { it.isNotEmpty() }, clock())
 
     suspend fun markOpened(id: String) = dao.markOpened(id, clock())
+
+    /**
+     * Owner edits (spec 6.2 "user edits outrank AI"). Only fields that actually changed are marked USER, so later AI
+     * runs never overwrite them. The original capture (raw text, files) is untouched; a version record is written.
+     */
+    suspend fun editItem(id: String, title: String, summary: String?, tags: List<String>, status: com.pkos.core.data.model.ItemStatus): Boolean {
+        val item = dao.get(id) ?: return false
+        val cleanTitle = title.trim().ifEmpty { item.title }.take(300)
+        val cleanSummary = summary?.trim()?.ifEmpty { null }
+        val cleanTags = tags.map { it.trim().removePrefix("#").trim() }.filter { it.isNotEmpty() }.map { it.take(40) }.distinctBy { it.lowercase() }.take(20)
+        val oldTags = db.tagDao().forItem(id).map { it.name }
+        val origins = runCatching { org.json.JSONObject(item.fieldOrigins) }.getOrElse { org.json.JSONObject() }
+        val user = com.pkos.core.data.model.FieldOrigin.USER.name
+        if (cleanTitle != item.title) origins.put("title", user)
+        if (cleanSummary != item.summary) origins.put("summary", user)
+        if (cleanTags.map { it.lowercase() }.toSet() != oldTags.map { it.lowercase() }.toSet()) origins.put("tags", user)
+        if (status != item.status) origins.put("status", user)
+        val now = clock()
+        val updated = item.copy(title = cleanTitle, summary = cleanSummary, status = status, fieldOrigins = origins.toString(), userEdited = true, updatedAt = now)
+        db.withTransaction {
+            dao.update(updated)
+            if (origins.optString("tags") == user) {
+                db.tagDao().unlinkAll(id)
+                cleanTags.forEach { name ->
+                    val normalized = name.lowercase(java.util.Locale.ROOT)
+                    db.tagDao().insertIgnore(com.pkos.core.data.db.entity.TagEntity(java.util.UUID.nameUUIDFromBytes(normalized.toByteArray()).toString(), name, normalized))
+                    db.tagDao().linkByName(id, normalized)
+                }
+            }
+            recordVersion(updated)
+        }
+        return true
+    }
+
+    /** Archive keeps the item (search, Notion, backup) but takes it out of the Inbox. Unarchive returns it there. */
+    suspend fun setArchived(id: String, archived: Boolean) {
+        val item = dao.get(id) ?: return
+        val status = if (archived) com.pkos.core.data.model.ItemStatus.ARCHIVED else com.pkos.core.data.model.ItemStatus.INBOX
+        if (item.status == status) return
+        val origins = runCatching { org.json.JSONObject(item.fieldOrigins) }.getOrElse { org.json.JSONObject() }.put("status", "USER")
+        val updated = item.copy(status = status, fieldOrigins = origins.toString(), userEdited = true, updatedAt = clock())
+        db.withTransaction { dao.update(updated); recordVersion(updated) }
+    }
+
+    /**
+     * Soft delete: hidden everywhere in the app, kept in the database (and in backups) so nothing is destroyed;
+     * the Notion page is never deleted (spec: never delete remote data automatically).
+     */
+    suspend fun delete(id: String) = dao.softDelete(id, clock())
+
+    private suspend fun recordVersion(i: com.pkos.core.data.db.entity.KnowledgeItemEntity) {
+        val v = db.itemVersionDao().latestVersion(i.id) + 1
+        val snap = org.json.JSONObject().put("title", i.title).put("summary", i.summary ?: org.json.JSONObject.NULL)
+            .put("status", i.status.name).put("origins", org.json.JSONObject(i.fieldOrigins))
+        db.itemVersionDao().insert(com.pkos.core.data.db.entity.ItemVersionEntity(java.util.UUID.randomUUID().toString(), i.id, v, snap.toString(), i.updatedAt, com.pkos.core.data.model.FieldOrigin.USER))
+    }
 
     /** Owner confirms the AI organisation: the category becomes theirs (origin USER) and the review flag clears. */
     suspend fun acceptOrganization(id: String) = setCategoryInternal(id, null)

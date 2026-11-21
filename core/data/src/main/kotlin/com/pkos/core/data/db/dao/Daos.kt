@@ -33,7 +33,7 @@ private const val ALIVE = "deleted_at IS NULL"
 private const val IN_PROGRESS = "processing_state IN ('CAPTURED','LOCAL_SAVED','EXTRACT_PENDING','EXTRACTED','AI_PENDING')"
 private const val NEEDS_ACTION = "(processing_state = 'FAILED' OR sync_state IN ('ERROR_ACTION_REQUIRED','CONFLICT'))"
 private const val PENDING_SYNC = "sync_state IN ('BACKUP_QUEUED','NOTION_QUEUED','ERROR_RETRYABLE')"
-private const val IN_INBOX = "(status = 'INBOX' OR $IN_PROGRESS OR processing_state = 'NEEDS_REVIEW' OR $NEEDS_ACTION)"
+private const val IN_INBOX = "(status != 'ARCHIVED' AND (status = 'INBOX' OR $IN_PROGRESS OR processing_state = 'NEEDS_REVIEW' OR $NEEDS_ACTION))"
 
 @Dao
 interface KnowledgeDao {
@@ -98,6 +98,10 @@ interface KnowledgeDao {
         """,
     )
     suspend fun findDuplicate(hash: String?, url: String?, excludeId: String): String?
+
+    /** Recent live items with enough text for a fuzzy-similarity check (bounded, so capture stays fast). */
+    @Query("SELECT id, raw_text FROM knowledge_items WHERE $ALIVE AND raw_text IS NOT NULL AND LENGTH(raw_text) >= :minLength ORDER BY created_at DESC LIMIT :limit")
+    suspend fun recentTexts(minLength: Int, limit: Int): List<IdText>
 
     @Query("UPDATE knowledge_items SET processing_state = :state, updated_at = :at WHERE id = :id")
     suspend fun setProcessingState(id: String, state: com.pkos.core.data.model.ProcessingState, at: Long)
@@ -171,12 +175,25 @@ interface TopicDao {
 
     @Query("SELECT * FROM topics WHERE id = :id")
     fun observe(id: String): Flow<TopicEntity?>
+
+    /** Existing topic with this name in the category (and under the parent topic, for subtopics). */
+    @Query(
+        """
+        SELECT * FROM topics WHERE category_id = :categoryId AND name = :name COLLATE NOCASE
+          AND ((:parentId IS NULL AND parent_topic_id IS NULL) OR parent_topic_id = :parentId)
+        LIMIT 1
+        """,
+    )
+    suspend fun find(categoryId: String, parentId: String?, name: String): TopicEntity?
 }
 
 @Dao
 interface TagDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIgnore(tag: TagEntity): Long
+
+    @Query("DELETE FROM knowledge_tags WHERE knowledge_id = :knowledgeId")
+    suspend fun unlinkAll(knowledgeId: String)
 
     @Query("INSERT OR IGNORE INTO knowledge_tags (knowledge_id, tag_id) VALUES (:knowledgeId, :tagId)")
     suspend fun link(knowledgeId: String, tagId: String)
@@ -424,3 +441,5 @@ interface BackupDao {
     @Upsert
     suspend fun upsertRecovery(r: com.pkos.core.data.db.entity.RecoveryMetadataEntity)
 }
+
+data class IdText(val id: String, @ColumnInfo(name = "raw_text") val rawText: String)

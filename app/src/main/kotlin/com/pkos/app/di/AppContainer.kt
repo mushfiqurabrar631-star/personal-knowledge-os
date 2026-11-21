@@ -137,6 +137,9 @@ class AppContainer(
         database, attachments, freeBytes = freeBytes,
     )
 
+    /** For short local writes that must finish even if the screen that started them closes. */
+    val appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+
     val processing = com.pkos.core.data.processing.ProcessingEngine(
         database, attachments::resolve,
         com.pkos.core.data.processing.DefaultTextExtractor(com.pkos.app.processing.PdfTextExtractor(context)), ocr,

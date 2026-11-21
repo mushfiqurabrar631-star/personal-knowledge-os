@@ -426,4 +426,23 @@
     <string name="backup_reason_full">Drive-এ জায়গা নেই</string>
     <string name="backup_reason_verify">আপলোড যাচাইয়ে অমিল; আবার চেষ্টা হবে</string>
     <string name="backup_reason_local">ফোনে জায়গা বা ফাইলের সমস্যা</string>
+    <!-- M3 gaps: edit / archive / delete -->
+    <string name="item_edit">এডিট করুন</string>
+    <string name="item_more">আরও</string>
+    <string name="item_status">অবস্থা</string>
+    <string name="item_status_inbox">ইনবক্স</string>
+    <string name="item_status_to_review">রিভিউ করব</string>
+    <string name="item_status_to_learn">শিখব</string>
+    <string name="item_status_in_progress">চলছে</string>
+    <string name="item_status_done">শেষ</string>
+    <string name="item_status_archived">আর্কাইভ</string>
+    <string name="item_archive">আর্কাইভ করুন</string>
+    <string name="item_unarchive">ইনবক্সে ফেরান</string>
+    <string name="item_delete">মুছুন</string>
+    <string name="item_delete_title">আইটেম মুছবেন?</string>
+    <string name="item_delete_body">অ্যাপ থেকে সরিয়ে দেওয়া হবে। Notion-এর পেজ মুছবে না, আর আগের ব্যাকআপেও থাকবে।</string>
+    <string name="edit_title">শিরোনাম</string>
+    <string name="edit_tags_hint">কমা দিয়ে আলাদা করুন</string>
+    <string name="edit_user_wins">আপনার বদলানো ঘর AI আর কখনো নিজে থেকে বদলাবে না।</string>
+    <string name="edit_save">সেভ করুন</string>
 </resources>

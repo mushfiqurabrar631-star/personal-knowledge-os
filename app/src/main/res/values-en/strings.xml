@@ -407,4 +407,23 @@
     <string name="backup_reason_full">No space left in Drive</string>
     <string name="backup_reason_verify">Upload check mismatch; will try again</string>
     <string name="backup_reason_local">Phone storage or file problem</string>
+    <!-- M3 gaps: edit / archive / delete -->
+    <string name="item_edit">Edit</string>
+    <string name="item_more">More</string>
+    <string name="item_status">Status</string>
+    <string name="item_status_inbox">Inbox</string>
+    <string name="item_status_to_review">To review</string>
+    <string name="item_status_to_learn">To learn</string>
+    <string name="item_status_in_progress">In progress</string>
+    <string name="item_status_done">Done</string>
+    <string name="item_status_archived">Archived</string>
+    <string name="item_archive">Archive</string>
+    <string name="item_unarchive">Back to Inbox</string>
+    <string name="item_delete">Delete</string>
+    <string name="item_delete_title">Delete this item?</string>
+    <string name="item_delete_body">It is removed from the app. The Notion page is not deleted, and earlier backups still contain it.</string>
+    <string name="edit_title">Title</string>
+    <string name="edit_tags_hint">Separate with commas</string>
+    <string name="edit_user_wins">Fields you change are never changed by AI afterwards.</string>
+    <string name="edit_save">Save</string>
 </resources>
