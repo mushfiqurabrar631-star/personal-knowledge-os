@@ -28,7 +28,11 @@ enum class FieldOrigin { USER, AI, IMPORT, SYSTEM }
 enum class SyncDestination { DRIVE_BACKUP, NOTION }
 enum class JobState { QUEUED, RUNNING, SUCCEEDED, RETRY_SCHEDULED, ACTION_REQUIRED, CANCELLED }
 enum class ProcessingJobType { EXTRACT, OCR, AI_CLASSIFY, EMBED }
-enum class BackupStatus { CREATING, UPLOADING, VERIFIED, FAILED }
+/**
+ * Backup lifecycle (spec 8.4). Only VERIFIED means "a backup exists". CREATING→ENCRYPTED→UPLOADING→UPLOADED are
+ * resumable steps; PRUNED = removed from Drive by the retention policy.
+ */
+enum class BackupStatus { CREATING, ENCRYPTED, UPLOADING, UPLOADED, VERIFIED, FAILED, PRUNED }
 enum class ExtractionStatus { NOT_NEEDED, PENDING, DONE, FAILED, UNSUPPORTED }
 
 /** Inbox filters (spec 2.5 / 2.7). */

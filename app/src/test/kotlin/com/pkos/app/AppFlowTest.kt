@@ -231,7 +231,8 @@ class AppFlowTest {
         waitFor(hasTestTag("backup_status"))
         rule.onNodeWithText(s(R.string.backup_none)).assertIsDisplayed()
         rule.onNodeWithText(s(R.string.backup_not_configured)).assertIsDisplayed()
-        rule.onNodeWithText(" " + s(R.string.backup_now), useUnmergedTree = true).assertExists()
+        // M5: the button exists but cannot run without Drive + recovery key (no fake backup).
+        rule.onNodeWithTag("backup_now").performScrollTo().assertIsNotEnabled()
     }
 
     @Test fun largeFontKeepsKeyActionsUsable() {

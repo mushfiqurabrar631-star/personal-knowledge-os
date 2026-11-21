@@ -179,7 +179,7 @@ fun PkosApp(
             composable<TopicsRoute> { TopicsRouteScreen(onBack = { navController.popBackStack() }) }
             composable<AskAiRoute> { AskAiScreen(onBack = { navController.popBackStack() }, openIntegrations = { navController.navigate(IntegrationsRoute) }) }
             composable<IntegrationsRoute> {
-                IntegrationsScreen(LocalAppContainer.current.integrations.current(), onBack = { navController.popBackStack() }, openAiSettings = { navController.navigate(AiSettingsRoute) }, openNotionSettings = { navController.navigate(NotionSettingsRoute) })
+                IntegrationsScreen(LocalAppContainer.current.integrations.current(), onBack = { navController.popBackStack() }, openAiSettings = { navController.navigate(AiSettingsRoute) }, openNotionSettings = { navController.navigate(NotionSettingsRoute) }, openBackup = { navController.navigate(BackupSyncRoute) })
             }
             composable<NotionSettingsRoute> { com.pkos.app.feature.settings.NotionSettingsRoute(onBack = { navController.popBackStack() }) }
             composable<AiSettingsRoute> { com.pkos.app.feature.settings.AiSettingsRoute(onBack = { navController.popBackStack() }) }

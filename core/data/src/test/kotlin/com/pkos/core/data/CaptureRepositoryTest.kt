@@ -139,7 +139,7 @@ class CaptureRepositoryTest {
 class MigrationTest {
     @get:Rule val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), PkosDatabase::class.java)
 
-    @Test fun v1ToV4KeepsExistingItems() {
+    @Test fun v1ToV5KeepsExistingItems() {
         val name = "migration-test.db"
         helper.createDatabase(name, 1).apply {
             execSQL(
@@ -157,6 +157,7 @@ class MigrationTest {
         db.close()
         helper.runMigrationsAndValidate(name, 3, true).close()
         helper.runMigrationsAndValidate(name, 4, true).close()
+        helper.runMigrationsAndValidate(name, 5, true).close()
         // Room itself opens the migrated file without a destructive fallback.
         val room = Room.databaseBuilder(ApplicationProvider.getApplicationContext(), PkosDatabase::class.java, name).build()
         runBlocking { assertEquals("পুরোনো আইটেম", room.knowledgeDao().get("old-1")?.title) }

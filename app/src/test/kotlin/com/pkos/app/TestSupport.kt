@@ -34,18 +34,21 @@ class InMemorySettings(initial: AppSettings = AppSettings()) : SettingsRepositor
     override suspend fun setFloatingCaptureEnabled(enabled: Boolean) { state.value = state.value.copy(floatingCaptureEnabled = enabled) }
     override suspend fun setAiModel(model: String) { state.value = state.value.copy(aiModel = model) }
     override suspend fun setNotionSyncEnabled(enabled: Boolean) { state.value = state.value.copy(notionSyncEnabled = enabled) }
+    override suspend fun updateBackup(transform: (AppSettings) -> AppSettings) { state.value = transform(state.value) }
 }
 
 /** Real repositories over a real (in-memory) Room database. */
 fun testContainer(
     settings: InMemorySettings = InMemorySettings(AppSettings(onboardingCompleted = true)),
     notion: com.pkos.core.notion.api.HttpTransport = com.pkos.core.notion.FakeNotion(),
+    drive: com.pkos.core.data.backup.DriveApi? = null,
 ): AppContainer {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val container = AppContainer(
         context, PkosDatabase.inMemory(context), settings, freeBytes = { Long.MAX_VALUE },
         secrets = com.pkos.app.processing.InMemorySecretStore(), ocr = null,
         notionTransport = notion,
+        driveOverride = drive, kdfIterations = 1_000,
     ).apply { onCaptured = {} } // UI tests check capture; processing has its own tests
     runBlocking { container.categories.ensureStarterTaxonomy() }
     return container

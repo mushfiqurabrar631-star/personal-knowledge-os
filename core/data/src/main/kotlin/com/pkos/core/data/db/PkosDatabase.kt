@@ -36,6 +36,9 @@ import com.pkos.core.data.db.entity.TopicEntity
  * Tables for later milestones (ai_runs, relationships, saved_searches, recovery_metadata) are added with
  * explicit migrations when their features are built.
  */
+/** Current Room schema version; restores of newer backups are refused. */
+const val DB_VERSION = 5
+
 @Database(
     entities = [
         KnowledgeItemEntity::class, CategoryEntity::class, TopicEntity::class, TagEntity::class,
@@ -44,10 +47,11 @@ import com.pkos.core.data.db.entity.TopicEntity
         NotionWriteIntentEntity::class, BackupSnapshotEntity::class, CollectionEntity::class,
         CollectionItemEntity::class, ItemVersionEntity::class, com.pkos.core.data.db.entity.AiRunEntity::class,
         com.pkos.core.data.db.entity.NotionKeptPropertiesEntity::class, com.pkos.core.data.db.entity.NotionConflictEntity::class,
+        com.pkos.core.data.db.entity.RecoveryMetadataEntity::class,
     ],
-    version = 4,
+    version = DB_VERSION,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
 )
 abstract class PkosDatabase : RoomDatabase() {
     abstract fun knowledgeDao(): KnowledgeDao
@@ -59,6 +63,7 @@ abstract class PkosDatabase : RoomDatabase() {
     abstract fun collectionDao(): CollectionDao
     abstract fun itemVersionDao(): ItemVersionDao
     abstract fun attachmentDao(): AttachmentDao
+    abstract fun backupDao(): com.pkos.core.data.db.dao.BackupDao
     abstract fun notionDao(): com.pkos.core.data.db.dao.NotionDao
     abstract fun aiRunDao(): com.pkos.core.data.db.dao.AiRunDao
     abstract fun processingJobDao(): ProcessingJobDao

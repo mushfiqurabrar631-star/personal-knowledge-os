@@ -36,10 +36,11 @@ data class IntegrationStatus(
 class IntegrationStatusProvider(
     private val aiKeySaved: () -> Boolean = { false },
     private val notionReady: () -> Boolean = { false },
+    private val driveReady: () -> Boolean = { false },
 ) {
     fun current(): IntegrationStatus = IntegrationStatus(
         notion = if (notionReady()) ConnectionState.CONNECTED else ConnectionState.NOT_CONNECTED,
-        drive = ConnectionState.NOT_CONNECTED,
+        drive = if (driveReady()) ConnectionState.CONNECTED else ConnectionState.NOT_CONNECTED,
         aiProvider = if (aiKeySaved()) ConnectionState.CONNECTED else ConnectionState.NOT_CONNECTED,
     )
 }
@@ -69,6 +70,8 @@ class AppContainer(
     ocr: com.pkos.core.data.processing.OcrEngine? = com.pkos.app.processing.MlKitOcrEngine(context),
     private val http: com.pkos.core.data.processing.HttpPost = com.pkos.app.processing.UrlConnectionHttp,
     notionTransport: com.pkos.core.notion.api.HttpTransport = com.pkos.app.notion.OkHttpNotionTransport(),
+    driveOverride: com.pkos.core.data.backup.DriveApi? = null,
+    private val kdfIterations: Int = com.pkos.core.data.backup.KdfParams.DEFAULT_ITERATIONS,
 ) {
     val knowledge = KnowledgeRepository(database)
     val categories = CategoryRepository(database)
@@ -79,6 +82,7 @@ class AppContainer(
     val integrations = IntegrationStatusProvider(
         aiKeySaved = { secrets.get(com.pkos.app.processing.GEMINI_KEY) != null },
         notionReady = { notionEnabledCache && secrets.get(com.pkos.app.notion.NOTION_TOKEN) != null },
+        driveReady = { kotlinx.coroutines.runBlocking { settings.settings.first().driveConnected } },
     )
 
     /** One client for the whole app so the 3 requests/second limit is shared by every sync. */
@@ -93,6 +97,30 @@ class AppContainer(
         if (!enabled || secrets.get(com.pkos.app.notion.NOTION_TOKEN) == null) return
         notionSync.markQueued(itemId)
         notionScheduler.enqueue(itemId)
+    }
+
+    // ---- M5: encrypted Google Drive backup ----
+    val driveAuth = com.pkos.app.backup.GoogleDriveAuth(context)
+    private val driveApi: com.pkos.core.data.backup.DriveApi = driveOverride ?: com.pkos.app.backup.DriveRestClient({ driveAuth.tokenOrThrow() })
+    private val backupWork = java.io.File(context.filesDir, "backup-work")
+    val backupScheduler = com.pkos.app.backup.BackupScheduler(context)
+    val lastBackupResult = kotlinx.coroutines.flow.MutableStateFlow<com.pkos.core.data.backup.BackupRunResult?>(null)
+    val appVersion: String = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "unknown"
+
+    /** The key-encryption key derived from the owner's recovery key, kept only in the Keystore-encrypted store. */
+    fun backupKek(): ByteArray? = secrets.get(BACKUP_KEK)?.let { java.util.Base64.getDecoder().decode(it) }
+    fun storeBackupKek(kek: ByteArray) = secrets.put(BACKUP_KEK, java.util.Base64.getEncoder().encodeToString(kek))
+
+    val backupService by lazy {
+        com.pkos.core.data.backup.BackupService(
+            database, context.getDatabasePath(PkosDatabase.FILE_NAME), java.io.File(context.filesDir, "attachments"), backupWork, driveApi,
+            ::backupKek, appVersion,
+            retention = { kotlinx.coroutines.runBlocking { settings.settings.first() }.let { com.pkos.core.data.backup.RetentionPolicy(it.retentionDaily, it.retentionWeekly, it.retentionMonthly) } },
+            kdfIterations = kdfIterations,
+        )
+    }
+    val restoreService by lazy {
+        com.pkos.core.data.backup.RestoreService(context.getDatabasePath(PkosDatabase.FILE_NAME), java.io.File(context.filesDir, "attachments"), backupWork, driveApi)
     }
 
     /** Queues every item that changed since its last verified sync (app start, "Sync now", sync switched on). */
@@ -141,9 +169,28 @@ class AppContainer(
     companion object {
         fun create(context: Context): AppContainer {
             val app = context.applicationContext
+            finishPendingRestore(app)
             return AppContainer(app, PkosDatabase.create(app), DataStoreSettingsRepository(app))
+        }
+
+        /**
+         * First start after a restore: the app must be able to open (and migrate) the restored database; otherwise the
+         * pre-restore safety snapshot is put back automatically (spec 8.4 #30).
+         */
+        fun finishPendingRestore(app: Context) {
+            val restore = com.pkos.core.data.backup.RestoreService(
+                app.getDatabasePath(PkosDatabase.FILE_NAME), java.io.File(app.filesDir, "attachments"), java.io.File(app.filesDir, "backup-work"), null,
+            )
+            if (!restore.markerFile.exists()) return
+            val ok = runCatching {
+                val d = PkosDatabase.create(app)
+                try { d.openHelper.writableDatabase.query("SELECT COUNT(*) FROM knowledge_items").use { it.moveToFirst() } } finally { d.close() }
+            }.isSuccess
+            restore.finishPending(ok)
         }
     }
 }
+
+const val BACKUP_KEK = "backup_kek"
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("AppContainer not provided") }

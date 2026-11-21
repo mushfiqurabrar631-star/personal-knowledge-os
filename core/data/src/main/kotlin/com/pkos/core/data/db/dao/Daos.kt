@@ -261,6 +261,9 @@ interface AttachmentDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(attachment: com.pkos.core.data.db.entity.AttachmentEntity)
 
+    @Query("SELECT * FROM attachments ORDER BY created_at")
+    suspend fun all(): List<com.pkos.core.data.db.entity.AttachmentEntity>
+
     @Query("SELECT * FROM attachments WHERE knowledge_id = :knowledgeId ORDER BY created_at")
     fun observeForItem(knowledgeId: String): Flow<List<com.pkos.core.data.db.entity.AttachmentEntity>>
 
@@ -393,3 +396,31 @@ interface NotionDao {
 }
 
 data class NotionSyncCounts(val synced: Int, val queued: Int, @ColumnInfo(name = "needs_action") val action: Int)
+
+@Dao
+interface BackupDao {
+    @Upsert
+    suspend fun upsert(s: BackupSnapshotEntity)
+
+    @Query("SELECT * FROM backup_snapshots WHERE id = :id")
+    suspend fun get(id: String): BackupSnapshotEntity?
+
+    /** The single unfinished backup, if any (resumed instead of starting another). */
+    @Query("SELECT * FROM backup_snapshots WHERE status IN ('CREATING','ENCRYPTED','UPLOADING','UPLOADED') ORDER BY created_at DESC LIMIT 1")
+    suspend fun unfinished(): BackupSnapshotEntity?
+
+    @Query("SELECT * FROM backup_snapshots WHERE status = 'VERIFIED' ORDER BY created_at DESC")
+    suspend fun verified(): List<BackupSnapshotEntity>
+
+    @Query("SELECT * FROM backup_snapshots WHERE status != 'PRUNED' ORDER BY created_at DESC LIMIT 30")
+    fun observeRecent(): Flow<List<BackupSnapshotEntity>>
+
+    @Query("SELECT * FROM recovery_metadata ORDER BY created_at DESC LIMIT 1")
+    suspend fun recovery(): com.pkos.core.data.db.entity.RecoveryMetadataEntity?
+
+    @Query("SELECT * FROM recovery_metadata ORDER BY created_at DESC LIMIT 1")
+    fun observeRecovery(): Flow<com.pkos.core.data.db.entity.RecoveryMetadataEntity?>
+
+    @Upsert
+    suspend fun upsertRecovery(r: com.pkos.core.data.db.entity.RecoveryMetadataEntity)
+}

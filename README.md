@@ -6,7 +6,8 @@ Master Database. Specification: *Personal Knowledge OS Master Build Specificatio
 
 ## Status
 See [CHECKLIST.md](CHECKLIST.md). Done: M1 app shell ([report](docs/m1-report.md)) · M2 capture ([report](docs/m2-report.md)) ·
-M3 processing ([report](docs/m3-report.md)) · **M4 Notion integration** ([report](docs/m4-report.md)). Next: M5 encrypted Drive backup.
+M3 processing ([report](docs/m3-report.md)) · M4 Notion integration ([report](docs/m4-report.md)) ·
+**M5 encrypted Drive backup — built & tested, real-Drive verification pending** ([report](docs/m5-report.md), [guide](docs/backup-restore-guide.md)).
 
 ## Modules
 | Module | Type | Purpose |
@@ -23,7 +24,7 @@ echo "sdk.dir=/path/to/android-sdk" > local.properties
 ./gradlew :app:assembleDebug                 # APK → app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :core:notion:test :core:data:testDebugUnitTest :app:testDebugUnitTest
 ./gradlew :app:lintDebug
-./gradlew :app:recordRoborazziDebug          # screenshots → docs/screenshots/m1..m4/
+./gradlew :app:recordRoborazziDebug          # screenshots → docs/screenshots/m1..m5/
 ```
 Offline check of the Notion core only: `./scripts/verify-core-notion.sh`.
 
@@ -39,5 +40,5 @@ Enable *Install unknown apps* for your file manager, open `app-debug.apk`. The d
 4. Live verification steps: [docs/m4-report.md](docs/m4-report.md#live-verification-on-your-phone).
 
 Docs: [Notion mapping](docs/notion-mapping.md) · ADRs [0001](docs/adr/0001-notion-target-and-sync.md),
-[0002](docs/adr/0002-body-marker-journal-adoption.md), [0003](docs/adr/0003-android-app-foundation.md), [0004](docs/adr/0004-notion-sync-in-app.md) ·
+[0002](docs/adr/0002-body-marker-journal-adoption.md), [0003](docs/adr/0003-android-app-foundation.md), [0004](docs/adr/0004-notion-sync-in-app.md), [0005](docs/adr/0005-encrypted-drive-backup.md) ·
 [Notion core test report](docs/test-report.md) · Font licence: [Hind Siliguri OFL](docs/licenses/HindSiliguri-OFL.txt)

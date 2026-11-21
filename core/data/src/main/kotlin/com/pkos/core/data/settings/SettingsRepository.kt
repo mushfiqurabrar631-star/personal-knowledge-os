@@ -25,6 +25,14 @@ data class AppSettings(
     val aiModel: String = com.pkos.core.data.processing.GeminiProvider.DEFAULT_MODEL,
     /** Automatic Notion sync; can only be switched on after a successful live connection check (M4). */
     val notionSyncEnabled: Boolean = false,
+    // M5 backup (spec 8, 10.1): all off until the owner connects Drive and sets a recovery key.
+    val driveConnected: Boolean = false,
+    val backupAutoEnabled: Boolean = false,
+    val backupPaused: Boolean = false,
+    val backupOnlyWhileCharging: Boolean = false,
+    val retentionDaily: Int = 7,
+    val retentionWeekly: Int = 4,
+    val retentionMonthly: Int = 6,
 )
 
 interface SettingsRepository {
@@ -36,6 +44,7 @@ interface SettingsRepository {
     suspend fun setFloatingCaptureEnabled(enabled: Boolean)
     suspend fun setAiModel(model: String)
     suspend fun setNotionSyncEnabled(enabled: Boolean)
+    suspend fun updateBackup(transform: (AppSettings) -> AppSettings)
 }
 
 private val Context.pkosSettings: DataStore<Preferences> by preferencesDataStore(name = "pkos_settings")
@@ -51,6 +60,13 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         val floating = booleanPreferencesKey("floating_capture_enabled")
         val aiModel = stringPreferencesKey("ai_model")
         val notionSync = booleanPreferencesKey("notion_sync_enabled")
+        val driveConnected = booleanPreferencesKey("drive_connected")
+        val backupAuto = booleanPreferencesKey("backup_auto")
+        val backupPaused = booleanPreferencesKey("backup_paused")
+        val backupCharging = booleanPreferencesKey("backup_only_charging")
+        val retDaily = androidx.datastore.preferences.core.intPreferencesKey("retention_daily")
+        val retWeekly = androidx.datastore.preferences.core.intPreferencesKey("retention_weekly")
+        val retMonthly = androidx.datastore.preferences.core.intPreferencesKey("retention_monthly")
     }
 
     override val settings: Flow<AppSettings> = store.data.map { p ->
@@ -62,6 +78,13 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
             floatingCaptureEnabled = p[Keys.floating] ?: false,
             aiModel = p[Keys.aiModel]?.takeIf { it.isNotBlank() } ?: com.pkos.core.data.processing.GeminiProvider.DEFAULT_MODEL,
             notionSyncEnabled = p[Keys.notionSync] ?: false,
+            driveConnected = p[Keys.driveConnected] ?: false,
+            backupAutoEnabled = p[Keys.backupAuto] ?: false,
+            backupPaused = p[Keys.backupPaused] ?: false,
+            backupOnlyWhileCharging = p[Keys.backupCharging] ?: false,
+            retentionDaily = p[Keys.retDaily] ?: 7,
+            retentionWeekly = p[Keys.retWeekly] ?: 4,
+            retentionMonthly = p[Keys.retMonthly] ?: 6,
         )
     }
 
@@ -72,4 +95,17 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
     override suspend fun setFloatingCaptureEnabled(enabled: Boolean) { store.edit { it[Keys.floating] = enabled } }
     override suspend fun setAiModel(model: String) { store.edit { it[Keys.aiModel] = model.trim() } }
     override suspend fun setNotionSyncEnabled(enabled: Boolean) { store.edit { it[Keys.notionSync] = enabled } }
+    override suspend fun updateBackup(transform: (AppSettings) -> AppSettings) {
+        store.edit { p ->
+            val cur = AppSettings(
+                driveConnected = p[Keys.driveConnected] ?: false, backupAutoEnabled = p[Keys.backupAuto] ?: false,
+                backupPaused = p[Keys.backupPaused] ?: false, backupOnlyWhileCharging = p[Keys.backupCharging] ?: false,
+                retentionDaily = p[Keys.retDaily] ?: 7, retentionWeekly = p[Keys.retWeekly] ?: 4, retentionMonthly = p[Keys.retMonthly] ?: 6,
+            )
+            val n = transform(cur)
+            p[Keys.driveConnected] = n.driveConnected; p[Keys.backupAuto] = n.backupAutoEnabled; p[Keys.backupPaused] = n.backupPaused
+            p[Keys.backupCharging] = n.backupOnlyWhileCharging
+            p[Keys.retDaily] = n.retentionDaily.coerceIn(1, 60); p[Keys.retWeekly] = n.retentionWeekly.coerceIn(0, 52); p[Keys.retMonthly] = n.retentionMonthly.coerceIn(0, 60)
+        }
+    }
 }

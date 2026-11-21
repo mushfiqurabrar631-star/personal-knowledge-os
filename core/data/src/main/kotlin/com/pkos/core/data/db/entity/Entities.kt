@@ -238,6 +238,27 @@ data class BackupSnapshotEntity(
     @ColumnInfo(name = "schema_version") val schemaVersion: Int,
     val status: BackupStatus,
     @ColumnInfo(name = "size_bytes") val sizeBytes: Long = 0,
+    // v5 (M5): resumable state + verification evidence. Paths are app-private; nothing here is secret.
+    @ColumnInfo(name = "archive_path") val archivePath: String? = null,
+    @ColumnInfo(name = "archive_md5") val archiveMd5: String? = null,
+    @ColumnInfo(name = "upload_session") val uploadSession: String? = null,
+    @ColumnInfo(name = "uploaded_bytes", defaultValue = "0") val uploadedBytes: Long = 0,
+    @ColumnInfo(name = "key_id") val keyId: String? = null,
+    @ColumnInfo(name = "app_version") val appVersion: String? = null,
+    @ColumnInfo(name = "item_count", defaultValue = "0") val itemCount: Int = 0,
+    @ColumnInfo(name = "attachment_count", defaultValue = "0") val attachmentCount: Int = 0,
+    @ColumnInfo(name = "attempts", defaultValue = "0") val attempts: Int = 0,
+    @ColumnInfo(name = "error_code") val errorCode: String? = null,
+    @ColumnInfo(name = "verified_at") val verifiedAt: Long? = null,
+)
+
+/** Recovery-key metadata (spec 6: recovery_metadata). Never contains the key or anything derived from it but its id. */
+@Entity(tableName = "recovery_metadata")
+data class RecoveryMetadataEntity(
+    @PrimaryKey @ColumnInfo(name = "key_id") val keyId: String,
+    val salt: String,
+    @ColumnInfo(name = "kdf_params") val kdfParams: String,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
 )
 
 @Entity(tableName = "collections")
