@@ -132,7 +132,7 @@ Pass = verified in this session by an automated test/check · Pending = needs th
 | # | Requirement | Status | Evidence |
 |---|---|---|---|
 | 1 | No secrets in repo/logs | Pass | history scan; no logging calls |
-| 2 | Old debug keystore in history | Pending (owner decision) | [proposal](security-debug-keystore-history.md); Option A by owner, Option B needs approval |
+| 2 | Old debug keystore in history | Pending (owner doing Option A) | Owner chose **Option A** on 2026-11-22 — no force-push, no history rewrite. Done so far: new build 0.7.0-m7-debug installed. Still to confirm: no old-key build left on the phone, Google Cloud has only the new SHA-1 |
 | 3 | Secrets encrypted with Keystore | Pass (code) · Pending (device Keystore) | KeystoreSecretStore |
 | 4 | Share target can't read private files | Pass | ShareCaptureTest.refusesFileUris… |
 | 5 | HTTPS only / no cleartext | Pass (config) · Pending (device TLS) | network_security_config.xml |
@@ -154,3 +154,13 @@ Pass = verified in this session by an automated test/check · Pending = needs th
 
 **M7 verdict:** the code work and automated checks for M7 are done. **M7 exit criteria are not met yet:** items 2, 16, 19 and the
 device parts of the other items stay Pending until the owner runs the acceptance guide. M8 must not start before that.
+
+
+## 8. Real-device acceptance log (owner's phone, guide numbers)
+
+Only steps with screenshots from the owner are marked Pass.
+
+| Guide # | Date | Result | Evidence | Notes |
+|---|---|---|---|---|
+| 0 Install | 2026-11-22 | Pass | Settings → Version `0.7.0-m7-debug` | CI run #12 artifact |
+| 1 Share text | 2026-11-22 | Pass | Samsung Notes → Share → PKOS: "Saved to Inbox" sheet; Inbox shows the item; detail has the full original text, source `share · com.samsung.android.app.notes · 08:15`, "organized on this phone" (Cloud AI off), suggested tasks with **No date** + Confirm/Dismiss | Observations (not failures yet): O-1 the save sheet named the item after a `.sdocx` file name instead of the note title; O-2 "something very similar was saved before" appeared while Inbox shows 1 item — owner to confirm whether the note was shared twice; O-3 one suggested task reads "Be mandatory to build…", likely a negative sentence ("must not …") cut wrongly — it is only a suggestion, the owner can Dismiss, nothing was created |
