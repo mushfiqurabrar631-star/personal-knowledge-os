@@ -52,11 +52,15 @@ interface SettingsRepository {
     suspend fun setNotionSyncEnabled(enabled: Boolean)
     suspend fun updateBackup(transform: (AppSettings) -> AppSettings)
     suspend fun updateFeatures(semantic: Boolean? = null, reminders: Boolean? = null, reminderDays: Int? = null)
+    /** Spec 10.1 "delete all data": back to first-run defaults (onboarding shows again). */
+    suspend fun clearAll()
 }
 
 private val Context.pkosSettings: DataStore<Preferences> by preferencesDataStore(name = "pkos_settings")
 
 class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : SettingsRepository {
+    override suspend fun clearAll() { store.edit { it.clear() } }
+
     constructor(context: Context) : this(context.applicationContext.pkosSettings)
 
     private object Keys {

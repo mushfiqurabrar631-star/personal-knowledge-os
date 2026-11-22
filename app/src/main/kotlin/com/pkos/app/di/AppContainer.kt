@@ -101,6 +101,8 @@ class AppContainer(
 
     // ---- M5: encrypted Google Drive backup ----
     val driveAuth = com.pkos.app.backup.GoogleDriveAuth(context)
+    /** Replaced in tests; real one revokes the Google grant. */
+    var driveRevoker: suspend () -> Boolean? = { driveAuth.revoke(http) }
     private val driveApi: com.pkos.core.data.backup.DriveApi = driveOverride ?: com.pkos.app.backup.DriveRestClient({ driveAuth.tokenOrThrow() })
     private val backupWork = java.io.File(context.filesDir, "backup-work")
     val backupScheduler = com.pkos.app.backup.BackupScheduler(context)
@@ -166,6 +168,23 @@ class AppContainer(
     val reminders = com.pkos.core.data.features.ReminderService(database)
     val reminderScheduler = com.pkos.app.features.ReminderScheduler(context)
     val exporter by lazy { com.pkos.core.data.features.ExportService(database, java.io.File(context.filesDir, StorageRepository.ATTACHMENTS_DIR), appVersion) }
+
+    // ---- Spec 10.1 privacy controls ----
+    val privacy by lazy { com.pkos.core.data.features.PrivacyService(database, java.io.File(context.filesDir, StorageRepository.ATTACHMENTS_DIR)) }
+    fun cacheDirs(): List<java.io.File> = listOfNotNull(context.cacheDir, context.externalCacheDir)
+
+    /**
+     * Permanent wipe of everything PKOS keeps on this phone: items, files, settings, Notion token, AI key, recovery key
+     * on the phone, scheduled work. Notion pages and Drive backups are not touched (they live in the owner's accounts).
+     */
+    suspend fun deleteAllData(): com.pkos.core.data.features.WipeResult {
+        runCatching { androidx.work.WorkManager.getInstance(context).cancelAllWork() }
+        val r = privacy.deleteAllData()
+        listOf(com.pkos.app.notion.NOTION_TOKEN, com.pkos.app.processing.GEMINI_KEY, BACKUP_KEK).forEach { secrets.remove(it) }
+        runCatching { privacy.clearCache(cacheDirs()) }
+        settings.clearAll()
+        return r
+    }
 
     /** Gemini answer writer for Ask — only with cloud AI on and a key saved. Never a paid service. */
     suspend fun cloudGenerator(): com.pkos.core.data.features.TextGenerator? {

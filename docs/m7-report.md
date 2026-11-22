@@ -1,7 +1,9 @@
 # M7 — Hardening (security, accessibility, performance, regression)
 
-Date: 2026-11-22 · Version 0.6.0-m6 → **0.7.0-m7** · DB schema stays **v6** (no migration in M7) · no new dependency.
-No feature was added. Notion schema, Drive backup and recovery code were not changed.
+Date: 2026-11-22 · Version 0.6.0-m6 → **0.7.0-m7** · DB schema stays **v6** (no migration in M7) · one new dependency (round 2): `zip4j` 2.11.5 for the password-protected export required by spec §10.
+No feature outside the spec was added; round 2 added only the missing spec §10/§10.1 controls. Notion schema, backup/restore engine and recovery code were not changed (Drive *disconnect* now also revokes the grant).
+
+Step-by-step phone checks (Bengali): [m7-acceptance-guide.md](m7-acceptance-guide.md).
 
 Legend: ✅ verified by an automated test or a check run in this session · ⏳ **Pending** (needs the real phone, an account or credentials) · ⚠️ open gap
 
@@ -10,19 +12,34 @@ Legend: ✅ verified by an automated test or a check run in this session · ⏳ 
 | Area | Finding | Result |
 |---|---|---|
 | Secrets in Git | Full history scanned (Gemini `AIza…`, Notion `ntn_/secret_`, Google `ya29.`, private keys, keystores, `local.properties`). No API key, token or recovery key was ever committed. `.gitignore` covers `local.properties`, `*.keystore`, `*.jks`, `*.p12`, `keystore/`, `signing.properties`, `secrets.properties`. | ✅ |
-| Old debug keystore | `keystore/debug.keystore` (password `android`) is still in **old commits** (removed + rotated in M5). The current debug key is local and untracked; the old key signs nothing. Removing it from history requires a force-push rewrite — owner decision, not done. | ⚠️ documented |
+| Old debug keystore | `keystore/debug.keystore` (password `android`) is still in **old commits** (removed + rotated in M5). The current debug key is local and untracked; the old key signs nothing. Removing it from history requires a force-push rewrite — owner decision, not done. | ⚠️ proposal in [security-debug-keystore-history.md](security-debug-keystore-history.md); no force-push |
 | Logs | No `Log.*`, `println`, `printStackTrace` or HTTP logging interceptor in app/core main code. Tokens, prompts, text and recovery keys are never logged. | ✅ |
 | Secrets at rest | Notion token, Gemini key and backup KEK: AES-256-GCM with a non-exportable Android Keystore key; only ciphertext in private prefs; excluded from Android backup (`allowBackup=false`, extraction rules exclude everything). | ✅ code review; Keystore behaviour ⏳ phone |
 | Local DB / attachments | App-private storage; FileProvider exposes only `files/attachments/`, not exported, per-intent read grant. | ✅ |
 | **Share target accepted `file://` URIs (fixed)** | `ShareActivity` is exported; a malicious app could share `file:///data/data/com.pkos.app/databases/pkos.db` (or the secrets file) and PKOS would read its own private file and save it as an attachment (which could then go to Notion/Drive). Now only `content://` URIs are accepted. Test: `ShareCaptureTest.refusesFileUrisPointingAtPrivateAppFiles` (DB file, secrets file, attachment path; parser + real ShareActivity → no attachment). Share tests now use a real `content://` provider. | ✅ fixed |
 | Network | All endpoints are hard-coded `https://` (Notion, Drive, Gemini). Added `network_security_config.xml`: cleartext **off**, system CAs only (user-installed CAs not trusted). | ✅ config; ⏳ phone TLS check |
-| OAuth | Drive uses only `drive.file` (files PKOS created). Disconnect stops all Drive use but does **not** revoke the Google grant (the owner can revoke at myaccount.google.com/permissions). | ⚠️ revoke missing (spec §10) |
+| OAuth | Drive uses only `drive.file` (files PKOS created). **Fixed (round 2):** Disconnect now also revokes PKOS's Google grant (`oauth2.googleapis.com/revoke`, no UI); if Google cannot be reached it says so and shows myaccount.google.com/permissions. Test: `M7PrivacyFlowTest` (revoked / not confirmed). | ✅ code; ⏳ real Google |
 | Local-only → cloud (release blocker) | Verified at every path: processing (cloud AI), embeddings, Ask prompt, Notion sync. New `M7SecurityTest.localOnlyNeverLeavesThePhone` uses spy providers and also covers switching an item to local-only later (its stored cloud embedding is deleted, nothing is sent afterwards). | ✅ |
 | **No per-item local-only switch (fixed)** | Spec §10 requires "local-only per item"; only a global default existed. Item ⋮ menu now has *Keep on this phone only / Allow cloud AI and Notion*; detail shows the privacy state. Pages already in Notion are left untouched. | ✅ fixed (UI ⏳ phone) |
 | Notion/Drive failures vs local data | Existing tests: Notion 401/403/404/409/429/500, lost responses, conflicts; Drive auth loss, full Drive, interrupted upload, checksum mismatch, wrong key, failed restore rollback — none deletes or changes local items. | ✅ (re-run below) |
-| Export privacy | Export is a plain (unencrypted) ZIP by design; local-only items are excluded unless the owner opts in. Spec §10 says "protect archive if it contains private material": a red warning now appears when local-only items are included. The ZIP itself is still not encrypted. | ⚠️ warning only |
+| Export privacy | **Fixed (round 2):** spec §10 "protect archive if it contains private material" — including local-only items now **requires a password** (≥ 8 chars, typed twice) and every file in the ZIP is AES-256 encrypted (standard WinZip-AES via `zip4j` 2.11.5, Apache-2.0, the only new dependency). Optional for normal exports. Enforced in the service too. Tests: `M7PrivacyTest.exportWithPrivateItemsNeedsAPasswordAndIsAesEncrypted`, `M7PrivacyFlowTest`. | ✅ |
 
-Open spec gaps found by the audit (spec §10.1 privacy controls, not built in M1–M6, **not** added in M7 because M7 adds no features): *Clear AI cache/history*, *View recent cloud processing activity* (the audit table `ai_runs` exists, no screen), *Delete local cache vs delete all data* explanation, *Drive revoke*. Owner decision needed on when to build them.
+## 1a. Spec §10.1 privacy controls (round 2)
+
+| Control | Where | Evidence |
+|---|---|---|
+| Cloud AI on/off | Settings → AI | existing (M3) |
+| Local-only capture default | Settings | existing (M2) + per item (M7) |
+| Backup now / pause backup | Backup | existing (M5) |
+| Notion sync on/off | Notion settings | existing (M4) |
+| Disconnect Notion | Notion settings → *Disconnect Notion*: token removed, sync off, pages untouched; text explains removing the integration in Notion | `NotionFlowTest` |
+| Disconnect Google Drive | Backup → *Disconnect*: backups stop, Google grant revoked | `M7PrivacyFlowTest` ×2 |
+| Delete local cache vs delete all data, explained separately | Settings → **Privacy & data**: *Clear temporary cache* (temp files + rebuildable search index; data kept) vs *Delete all data on this phone* (items, files, settings, token, AI key, recovery key on phone; typed confirmation word; Notion pages and Drive backups explicitly **not** deleted; app returns to onboarding) | `M7PrivacyTest`, `M7PrivacyFlowTest` |
+| Export my data | Export (M6) + password protection | above |
+| Clear AI cache/history | Privacy & data → *Clear AI history*: AI audit rows + cloud-made embeddings; items/summaries/tags kept | `M7PrivacyTest`, `M7PrivacyFlowTest` |
+| View recent cloud processing activity | Privacy & data: last 100 cloud sends — item, what (organizing / Ask answer / meaning index), provider·model, characters sent, time, outcome. Ask and embedding sends are now recorded too (existing `ai_runs` table, no schema change); the text itself is never stored. | `M7PrivacyTest.cloudActivityListsEverySend…` |
+
+No schema change (DB stays v6). Permanent deletion = only *Delete all data*, behind a typed word.
 
 ## 2. Accessibility audit
 
@@ -57,16 +74,18 @@ JVM numbers (Robolectric + real SQLite on the build machine) — **not phone num
 
 ## 4. Regression (run in this session)
 
-Final full run: clean build, 2026-11-22 ~04:15 (+06), code identical to the commit except `versionName` (0.6.0-m6 → 0.7.0-m7 changed afterwards; lint + debug + release were re-run with 0.7.0-m7 and pass). Figures from the JUnit XML files:
+Round 2 full run (clean build, 2026-11-22, v0.7.0-m7), from the JUnit XML files:
 
 | Suite | Result |
 |---|---|
 | `:core:notion:test` | 56/56 ✅ |
-| `:core:data:testDebugUnitTest` | 97/97 ✅ — incl. MigrationTest v1→v6, M7SecurityTest, M7PerformanceTest (3) |
-| `:app:testDebugUnitTest` flow + audit tests | 58/58 ✅ — incl. ShareCaptureTest (7), M7AccessibilityTest ×2, ContrastTest, TranslationParityTest |
-| `:app:recordRoborazziDebug` screenshot tests | 47/47 ✅ — incl. ScreenshotM7Test (4) |
-| Lint (`:app`, `:core:data`) | 0 errors ✅ (app: 24 warnings) |
-| `assembleDebug` / `assembleRelease` | both OK ✅ |
+| `:core:data:testDebugUnitTest` | 100/100 ✅ — incl. MigrationTest v1→v6, M7SecurityTest, M7PerformanceTest (3), M7PrivacyTest (3) |
+| `:app:testDebugUnitTest` flow + audit tests | 63/63 ✅ — incl. M7PrivacyFlowTest (5), ShareCaptureTest, M7Accessibility ×2 (now also the Privacy screen), ContrastTest, TranslationParityTest |
+| `:app:recordRoborazziDebug` screenshot tests | 47/48 in the full run — new `ScreenshotM7Test.x05` failed: it scrolled to a node the lazy list had not composed yet (test bug). Fixed and re-run: ScreenshotM7Test 5/5 ✅ |
+| Lint | `:app` 0 errors (27 warnings), `:core:data` no issues ✅ |
+| `assembleDebug` / `assembleRelease` | both OK ✅ (`0.7.0-m7-debug`, `0.7.0-m7` unsigned) |
+
+Round 1 (before the §10.1 work): 56 / 97 / 58 / 47, all passing.
 
 Covered areas: migrations v1–v6; offline capture, processing, queue/restart idempotency; Notion idempotency, conflicts, error codes; backup encryption, integrity, restore + rollback; export, search, chat, graph, collections, reminders opt-in.
 
@@ -106,4 +125,32 @@ Covered areas: migrations v1–v6; offline capture, processing, queue/restart id
 | UI shows fake sync/backup success | Success only after verified API result / upload verification (existing tests). |
 | Core capture fails offline | Capture tests run with no network. |
 
-**M7 verdict:** automated hardening complete; **acceptance checklist not passed yet** — every ⏳ item needs the owner's phone, Notion token and Google account. M8 should start only after those checks.
+## 7. M7 completion checklist
+
+Pass = verified in this session by an automated test/check · Pending = needs the owner's phone/accounts (steps: [m7-acceptance-guide.md](m7-acceptance-guide.md)) · Fail = none open.
+
+| # | Requirement | Status | Evidence |
+|---|---|---|---|
+| 1 | No secrets in repo/logs | Pass | history scan; no logging calls |
+| 2 | Old debug keystore in history | Pending (owner decision) | [proposal](security-debug-keystore-history.md); Option A by owner, Option B needs approval |
+| 3 | Secrets encrypted with Keystore | Pass (code) · Pending (device Keystore) | KeystoreSecretStore |
+| 4 | Share target can't read private files | Pass | ShareCaptureTest.refusesFileUris… |
+| 5 | HTTPS only / no cleartext | Pass (config) · Pending (device TLS) | network_security_config.xml |
+| 6 | Minimal OAuth scope + disconnect/revoke | Pass (code) · Pending (real Google, guide #25) | drive.file; M7PrivacyFlowTest |
+| 7 | Local-only never sent to cloud | Pass | M7SecurityTest, ProcessingTest, M6FeaturesTest |
+| 8 | Local-only per item | Pass · Pending (guide #21) | KnowledgeRepository.setLocalOnly, item menu |
+| 9 | Notion/Drive failure never loses local data | Pass · Pending (guide #12) | Notion + backup failure tests |
+| 10 | Export protected when private | Pass · Pending (guide #22) | M7PrivacyTest (AES-256) |
+| 11 | §10.1 privacy controls (all 9) | Pass · Pending (guide #16, #23–26) | table 1a |
+| 12 | TalkBack labels, 48 dp targets | Pass (semantics audit) · Pending (guide #28) | M7AccessibilityTest |
+| 13 | Contrast AA, bn/en parity | Pass | ContrastTest, TranslationParityTest |
+| 14 | Large font / small screen | Pass (2× / 320 dp) · Pending (guide #29) | M7AccessibilityLargeFontTest, screenshots m7 |
+| 15 | Search/capture/export performance & large files | Pass (JVM) · Pending (guide #30) | M7PerformanceTest |
+| 16 | Startup time, memory, battery | Pending | guide #30 |
+| 17 | Migrations v1–v6 | Pass | MigrationTest |
+| 18 | Full regression, lint, debug + release | Pass | section 4 |
+| 19 | §13.2 manual acceptance | Pending | guide #1–#22 |
+| 20 | §13.3 release blockers | Pass (automated) · Pending (real Drive restore, guide #14) | section 6 |
+
+**M7 verdict:** the code work and automated checks for M7 are done. **M7 exit criteria are not met yet:** items 2, 16, 19 and the
+device parts of the other items stay Pending until the owner runs the acceptance guide. M8 must not start before that.

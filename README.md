@@ -13,7 +13,7 @@ M3 processing ([report](docs/m3-report.md)) · M4 Notion integration ([report](d
 **M6 search & advanced features — automated tests and local builds pass; real-device checks (reminders, export picker, Gemini) not yet done** ([report](docs/m6-report.md#3-real-device-verification-not-yet-done--owner-on-the-phone)): offline FTS + meaning search, cited Ask,
 knowledge graph, topic de-duplication, recommendations, timeline, confirm-first tasks, opt-in reminders, smart collections, zip export + integrity check.
 Limitations: single-turn Ask, per-item graph only, no import of the export ZIP (restore = M5 Drive backup).
-**M7 hardening — automated audits and fixes done; spec §13.2 acceptance checklist still needs the real phone** ([report](docs/m7-report.md)).
+**M7 hardening — automated audits, fixes and spec §10.1 privacy controls done; M7 is *not* complete until the phone acceptance checks pass** ([report](docs/m7-report.md), [phone guide](docs/m7-acceptance-guide.md), [old debug key](docs/security-debug-keystore-history.md)).
 
 ## Modules
 | Module | Type | Purpose |
@@ -51,4 +51,4 @@ Enable *Install unknown apps* for your file manager, open `app-debug.apk`. The d
 
 Docs: [Notion mapping](docs/notion-mapping.md) · ADRs [0001](docs/adr/0001-notion-target-and-sync.md),
 [0002](docs/adr/0002-body-marker-journal-adoption.md), [0003](docs/adr/0003-android-app-foundation.md), [0004](docs/adr/0004-notion-sync-in-app.md), [0005](docs/adr/0005-encrypted-drive-backup.md) ·
-[Notion core test report](docs/test-report.md) · Font licence: [Hind Siliguri OFL](docs/licenses/HindSiliguri-OFL.txt)
+[Notion core test report](docs/test-report.md) · Font licence: [Hind Siliguri OFL](docs/licenses/HindSiliguri-OFL.txt) · Export encryption: zip4j (Apache-2.0)

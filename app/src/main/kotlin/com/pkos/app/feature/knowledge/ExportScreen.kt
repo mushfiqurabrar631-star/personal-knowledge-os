@@ -70,18 +70,26 @@ fun ExportRoute(onBack: () -> Unit) {
     val integrity by vm.integrity.collectAsStateWithLifecycle()
     var includeLocal by rememberSaveable { mutableStateOf(false) }
     var includeFiles by rememberSaveable { mutableStateOf(true) }
+    var protect by rememberSaveable { mutableStateOf(false) }
+    // Passwords are kept only in memory (not saved state) and never stored.
+    var pw by androidx.compose.runtime.remember { mutableStateOf("") }
+    var pw2 by androidx.compose.runtime.remember { mutableStateOf("") }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) vm.export(uri, ExportOptions(includeLocalOnly = includeLocal, includeAttachments = includeFiles))
+        if (uri != null) vm.export(uri, ExportOptions(includeLocal, includeFiles, if (protect || includeLocal) pw.toCharArray() else null))
     }
     ExportScreen(st, integrity, includeLocal, { includeLocal = it }, includeFiles, { includeFiles = it },
-        onExport = { pick.launch("pkos-export-${java.time.LocalDate.now()}.zip") }, onCheck = vm::check, onBack = onBack)
+        onExport = { pick.launch("pkos-export-${java.time.LocalDate.now()}.zip") }, onCheck = vm::check, onBack = onBack,
+        protect = protect || includeLocal, onProtect = { protect = it }, password = pw, onPassword = { pw = it }, password2 = pw2, onPassword2 = { pw2 = it })
 }
 
 @Composable
 fun ExportScreen(
     st: ExportState, integrity: IntegrityReport?, includeLocal: Boolean, onLocal: (Boolean) -> Unit, includeFiles: Boolean, onFiles: (Boolean) -> Unit,
     onExport: () -> Unit, onCheck: () -> Unit, onBack: () -> Unit,
+    protect: Boolean = false, onProtect: (Boolean) -> Unit = {}, password: String = "", onPassword: (String) -> Unit = {},
+    password2: String = "", onPassword2: (String) -> Unit = {},
 ) {
+    val pwOk = !protect || (password.length >= ExportOptions.MIN_PASSWORD && password == password2)
     ToolScaffold(stringResource(R.string.nav_export), onBack, "export_screen") {
         item { Text(stringResource(R.string.export_intro), style = MaterialTheme.typography.bodyMedium) }
         item {
@@ -89,7 +97,17 @@ fun ExportScreen(
                 ToggleRow(stringResource(R.string.export_include_local), stringResource(R.string.export_include_local_body), includeLocal, onLocal, "export_local")
                 if (includeLocal) Text(stringResource(R.string.export_private_warning), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("export_private_warning"))
                 ToggleRow(stringResource(R.string.export_include_files), null, includeFiles, onFiles, "export_files")
-                Button(onClick = onExport, enabled = st != ExportState.Running, modifier = Modifier.testTag("export_run")) { Text(stringResource(R.string.export_run)) }
+                ToggleRow(stringResource(R.string.export_protect), stringResource(R.string.export_protect_body), protect, { if (!includeLocal) onProtect(it) }, "export_protect")
+                if (protect) {
+                    val hidden = androidx.compose.ui.text.input.PasswordVisualTransformation()
+                    val kb = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password)
+                    androidx.compose.material3.OutlinedTextField(password, onPassword, label = { Text(stringResource(R.string.export_password)) }, singleLine = true, visualTransformation = hidden, keyboardOptions = kb, modifier = Modifier.fillMaxWidth().testTag("export_password"))
+                    androidx.compose.material3.OutlinedTextField(password2, onPassword2, label = { Text(stringResource(R.string.export_password_again)) }, singleLine = true, visualTransformation = hidden, keyboardOptions = kb,
+                        isError = password2.isNotEmpty() && password2 != password,
+                        supportingText = { if (password2.isNotEmpty() && password2 != password) Text(stringResource(R.string.export_password_mismatch)) },
+                        modifier = Modifier.fillMaxWidth().testTag("export_password2"))
+                }
+                Button(onClick = onExport, enabled = st != ExportState.Running && pwOk, modifier = Modifier.testTag("export_run")) { Text(stringResource(R.string.export_run)) }
                 when (st) {
                     ExportState.Running -> { Text(stringResource(R.string.export_running)); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     is ExportState.Done -> Text(stringResource(R.string.export_done, st.r.items, st.r.attachments, st.r.skippedLocalOnly), modifier = Modifier.testTag("export_done"))

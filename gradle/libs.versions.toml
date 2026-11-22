@@ -24,6 +24,7 @@ work = "2.12.0"
 okhttp = "5.5.1"
 playServicesAuth = "22.0.0"
 pdfbox = "2.0.27.0"
+zip4j = "2.11.5"
 mlkitText = "16.0.1"
 
 [libraries]
@@ -33,6 +34,8 @@ okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version
 androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfbox" }
+# Password-protected (AES-256) export ZIP — spec 10 "protect archive if it contains private material"
+zip4j = { module = "net.lingala.zip4j:zip4j", version.ref = "zip4j" }
 mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkitText" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }

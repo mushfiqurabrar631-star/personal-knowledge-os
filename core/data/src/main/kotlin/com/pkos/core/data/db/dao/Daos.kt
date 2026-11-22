@@ -325,6 +325,12 @@ interface AiRunDao {
 
     @Query("SELECT * FROM ai_runs WHERE knowledge_id = :knowledgeId ORDER BY created_at DESC LIMIT 1")
     fun observeLatest(knowledgeId: String): Flow<com.pkos.core.data.db.entity.AiRunEntity?>
+
+    @Query("SELECT r.id, r.knowledge_id, k.title, r.provider, r.model, r.prompt_version, r.outcome, r.input_chars, r.created_at FROM ai_runs r LEFT JOIN knowledge_items k ON k.id = r.knowledge_id WHERE r.provider != :local ORDER BY r.created_at DESC LIMIT :limit")
+    suspend fun recentNotProvider(local: String, limit: Int): List<AiRunRow>
+
+    @Query("DELETE FROM ai_runs")
+    suspend fun deleteAll(): Int
 }
 
 @Dao
@@ -473,6 +479,9 @@ interface FeatureDao {
     @Query("DELETE FROM embeddings WHERE knowledge_id = :id")
     suspend fun deleteEmbeddings(id: String)
 
+    @Query("DELETE FROM embeddings")
+    suspend fun deleteAllEmbeddings()
+
     @Upsert
     suspend fun upsertEmbedding(e: com.pkos.core.data.db.entity.EmbeddingEntity)
 
@@ -583,3 +592,15 @@ interface FeatureDao {
 }
 
 data class ItemName(@ColumnInfo(name = "item_id") val itemId: String, val name: String)
+
+data class AiRunRow(
+    val id: String,
+    @androidx.room.ColumnInfo(name = "knowledge_id") val knowledgeId: String,
+    val title: String?,
+    val provider: String,
+    val model: String,
+    @androidx.room.ColumnInfo(name = "prompt_version") val promptVersion: String,
+    val outcome: String,
+    @androidx.room.ColumnInfo(name = "input_chars") val inputChars: Int,
+    @androidx.room.ColumnInfo(name = "created_at") val createdAt: Long,
+)

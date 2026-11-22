@@ -23,6 +23,9 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 - No emulator (no KVM): UI verified with Robolectric Compose tests and Roborazzi screenshots; device install by owner.
 
 ## Last verified checkpoint
+2026-11-22 — M7 round 2 (§10.1 privacy controls, Drive revoke, AES export): :core:notion 56/56, :core:data 100/100, :app 63/63,
+screenshots 48/48 (47 in full run + fixed x05 re-run 5/5), lint 0 errors, debug + release OK. M7 exit Pending phone checks (docs/m7-acceptance-guide.md).
+
 2026-11-22 — M7 hardening (v0.7.0-m7, DB v6): :core:notion 56/56, :core:data 97/97, :app 58/58, screenshots 47/47, lint 0 errors,
 debug + release OK. Fixed: share target file:// read, O(n²) search index, export memory, per-item local-only, a11y labels/large font.
 Acceptance checklist (spec 13.2) pending on the phone. Report: docs/m7-report.md.

@@ -65,6 +65,18 @@ class GoogleDriveAuth(private val context: Context) {
         else -> DriveAuthState.Failed("SCOPE_NOT_GRANTED")
     }
 
+    /**
+     * Spec §10 "allow disconnect/revoke": revokes PKOS's Google grant (Google's OAuth revoke endpoint), never shows UI.
+     * true = revoked, false = Google could not be reached / refused, null = nothing was granted.
+     */
+    suspend fun revoke(http: com.pkos.core.data.processing.HttpPost): Boolean? {
+        val token = (authorize() as? DriveAuthState.Token)?.accessToken ?: return null
+        return runCatching {
+            http.post("https://oauth2.googleapis.com/revoke", mapOf("Content-Type" to "application/x-www-form-urlencoded"),
+                "token=" + java.net.URLEncoder.encode(token, "UTF-8")).status == 200
+        }.getOrDefault(false)
+    }
+
     /** For background work: a token or AUTH_REQUIRED (never shows UI). */
     suspend fun tokenOrThrow(): String = when (val s = authorize()) {
         is DriveAuthState.Token -> s.accessToken

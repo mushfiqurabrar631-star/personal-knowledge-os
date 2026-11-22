@@ -53,7 +53,7 @@ interface EmbeddingProvider {
  * Search (spec 9 #1, 9.1): offline FTS4 keyword search first; "meaning" layer = bilingual related-word expansion +
  * fuzzy spelling (both offline) + optional cloud embeddings. Works fully offline; the semantic layer can be switched off.
  */
-class SearchService(private val db: PkosDatabase, private val clock: () -> Long = System::currentTimeMillis) {
+class SearchService(internal val db: PkosDatabase, private val clock: () -> Long = System::currentTimeMillis) {
     private val dao get() = db.featureDao()
 
     /** Brings the FTS index up to date (only items changed since they were indexed). */
@@ -139,7 +139,9 @@ class SearchService(private val db: PkosDatabase, private val clock: () -> Long 
             val text = embedText(i)
             val hash = sha256Hex(text.toByteArray())
             if (dao.embeddingHash(i.id, embedder.model) == hash) continue
-            val v = embedder.embed(text) ?: break // stop on failure (quota/network); try again later
+            val v = embedder.embed(text)
+            CloudAudit.record(db, i.id, CloudAudit.EMBED, embedder.model, if (v == null) "ERROR" else "OK", text.length, clock())
+            if (v == null) break // stop on failure (quota/network); try again later
             dao.upsertEmbedding(EmbeddingEntity(i.id, embedder.model, v.size, encode(v), hash, clock())); n++
         }
         return n

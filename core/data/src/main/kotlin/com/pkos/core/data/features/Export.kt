@@ -15,7 +15,43 @@ import java.time.Instant
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-data class ExportOptions(val includeLocalOnly: Boolean = false, val includeAttachments: Boolean = true)
+/**
+ * [password]: when set, every file in the ZIP is AES-256 encrypted (standard WinZip AES; opens in 7-Zip, ZArchiver,
+ * WinZip, Keka). Required whenever local-only (private) items are included — spec §10 "protect archive".
+ */
+class ExportOptions(val includeLocalOnly: Boolean = false, val includeAttachments: Boolean = true, val password: CharArray? = null) {
+    init { require(!includeLocalOnly || (password != null && password.size >= MIN_PASSWORD)) { "PASSWORD_REQUIRED" } }
+    companion object { const val MIN_PASSWORD = 8 }
+}
+
+/** Minimal entry writer so plain and encrypted ZIPs share one export routine. */
+private interface ZipSink : java.io.Closeable {
+    fun begin(name: String)
+    fun write(b: ByteArray, off: Int, len: Int)
+    fun end()
+}
+
+private class PlainZip(out: OutputStream) : ZipSink {
+    private val z = ZipOutputStream(out)
+    override fun begin(name: String) = z.putNextEntry(ZipEntry(name))
+    override fun write(b: ByteArray, off: Int, len: Int) = z.write(b, off, len)
+    override fun end() = z.closeEntry()
+    override fun close() = z.close()
+}
+
+private class AesZip(out: OutputStream, password: CharArray) : ZipSink {
+    private val z = net.lingala.zip4j.io.outputstream.ZipOutputStream(out, password)
+    override fun begin(name: String) = z.putNextEntry(net.lingala.zip4j.model.ZipParameters().apply {
+        fileNameInZip = name
+        compressionMethod = net.lingala.zip4j.model.enums.CompressionMethod.DEFLATE
+        isEncryptFiles = true
+        encryptionMethod = net.lingala.zip4j.model.enums.EncryptionMethod.AES
+        aesKeyStrength = net.lingala.zip4j.model.enums.AesKeyStrength.KEY_STRENGTH_256
+    })
+    override fun write(b: ByteArray, off: Int, len: Int) = z.write(b, off, len)
+    override fun end() { z.closeEntry() }
+    override fun close() = z.close()
+}
 
 data class ExportResult(val items: Int, val attachments: Int, val skippedLocalOnly: Int, val files: Int)
 
@@ -52,20 +88,21 @@ class ExportService(private val db: PkosDatabase, private val attachmentsRoot: F
         } }
         val sums = linkedMapOf<String, String>()
         var files = 0
-        ZipOutputStream(out.buffered(1 shl 16)).use { zip ->
+        val buffered = out.buffered(1 shl 16)
+        (if (options.password != null) AesZip(buffered, options.password) else PlainZip(buffered)).use { zip ->
             fun put(name: String, bytes: ByteArray) {
-                zip.putNextEntry(ZipEntry(name)); zip.write(bytes); zip.closeEntry()
+                zip.begin(name); zip.write(bytes, 0, bytes.size); zip.end()
                 sums[name] = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }; files++
             }
             // Attachments are streamed (64 KiB buffer) and hashed on the way: a large video never has to fit in memory.
             fun putFile(name: String, file: File) {
                 val md = MessageDigest.getInstance("SHA-256")
-                zip.putNextEntry(ZipEntry(name))
+                zip.begin(name)
                 file.inputStream().buffered(1 shl 16).use { input ->
                     val buf = ByteArray(1 shl 16)
                     while (true) { val n = input.read(buf); if (n < 0) break; md.update(buf, 0, n); zip.write(buf, 0, n) }
                 }
-                zip.closeEntry()
+                zip.end()
                 sums[name] = md.digest().joinToString("") { "%02x".format(it) }; files++
             }
             fun topicPath(i: KnowledgeItemEntity) = listOfNotNull(i.categoryId?.let(cats::get), i.topicId?.let { topics[it]?.name }, i.subtopicId?.let { topics[it]?.name })
@@ -115,9 +152,9 @@ class ExportService(private val db: PkosDatabase, private val attachmentsRoot: F
                 if (f.exists()) { putFile("attachments/" + f.name, f); attCount++ }
             }
             val report = JSONObject().put("generated_at", iso(clock())).put("items", items.size).put("attachments", attCount)
-                .put("skipped_local_only", all.size - items.size).put("secrets_included", false)
+                .put("skipped_local_only", all.size - items.size).put("secrets_included", false).put("password_protected", options.password != null)
                 .put("sha256", JSONObject(sums as Map<*, *>))
-            zip.putNextEntry(ZipEntry("integrity-report.json")); zip.write(report.toString(2).toByteArray()); zip.closeEntry(); files++
+            report.toString(2).toByteArray().let { zip.begin("integrity-report.json"); zip.write(it, 0, it.size); zip.end() }; files++
             return ExportResult(items.size, attCount, all.size - items.size, files)
         }
     }

@@ -118,9 +118,14 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
+    /** null = not tried yet, true = Google grant revoked, false = revoke could not be confirmed (manual link shown). */
+    val revoked = MutableStateFlow<Boolean?>(null)
+
+    /** Stops all Drive use, then revokes PKOS's Google grant. Backups already in Drive and local data are kept. */
     fun disconnect() = viewModelScope.launch {
         c.settings.updateBackup { it.copy(driveConnected = false, backupAutoEnabled = false) }
         c.backupScheduler.cancelAll(); quota.value = null
+        revoked.value = runCatching { c.driveRevoker() }.getOrNull() ?: false
     }
 
     fun refreshQuota() = viewModelScope.launch { quota.value = runCatching { withContext(Dispatchers.IO) { c.backupService.quota() } }.getOrNull() }
@@ -204,6 +209,7 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
     val keyOnPhone by vm.keyOnPhone.collectAsStateWithLifecycle()
     val newKey by vm.newKey.collectAsStateWithLifecycle()
     val quota by vm.quota.collectAsStateWithLifecycle()
+    val revoked by vm.revoked.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val last by vm.lastResult.collectAsStateWithLifecycle()
     val running by vm.running.collectAsStateWithLifecycle()
@@ -237,8 +243,10 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             if (s.driveConnected) {
                 StatusPill(stringResource(R.string.drive_connected), Icons.Outlined.CheckCircle, ToneKind.SUCCESS)
                 quota?.let { QuotaLine(it, lastVerified?.sizeBytes ?: 0) }
+                Text(stringResource(R.string.drive_disconnect_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = { vm.disconnect() }, modifier = Modifier.testTag("drive_disconnect")) { Text(stringResource(R.string.drive_disconnect)) }
             } else {
+                revoked?.let { Text(stringResource(if (it) R.string.drive_revoked else R.string.drive_revoke_manual), style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag(if (it) "drive_revoked" else "drive_revoke_manual")) }
                 Button(onClick = { vm.connect() }, modifier = Modifier.testTag("drive_connect")) { Text(stringResource(R.string.drive_connect)) }
             }
             error?.takeIf { it != "WRONG_KEY" }?.let { Text(stringResource(R.string.drive_auth_failed, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }

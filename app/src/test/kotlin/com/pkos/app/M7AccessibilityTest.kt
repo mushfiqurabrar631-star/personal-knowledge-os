@@ -139,7 +139,7 @@ abstract class A11yAuditBase(private val fontScale: Float) {
         rule.onNodeWithTag("tab_capture").performClick(); waitFor(hasTestTag("capture_sheet")); audit("capture-sheet")
         back()
         rule.onNodeWithTag("tab_settings").performClick(); waitFor(hasTestTag("settings_list"))
-        for ((label, tag) in listOf(R.string.settings_backup_sync to "backup_key", R.string.notion_settings_title to "notion_settings", R.string.ai_settings_title to "ai_settings", R.string.settings_export to "export_screen")) {
+        for ((label, tag) in listOf(R.string.settings_backup_sync to "backup_key", R.string.notion_settings_title to "notion_settings", R.string.ai_settings_title to "ai_settings", R.string.settings_export to "export_screen", R.string.privacy_title to "privacy_screen")) {
             rule.onNodeWithTag("settings_list").performScrollToNode(hasText(s(label)))
             rule.onAllNodes(hasText(s(label)), useUnmergedTree = true)[0].performClick(); waitFor(hasTestTag(tag))
             scrollAudit(tag, null, 4); back(); waitFor(hasTestTag("settings_list"))

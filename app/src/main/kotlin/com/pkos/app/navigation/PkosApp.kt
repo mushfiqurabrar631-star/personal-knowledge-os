@@ -180,6 +180,7 @@ fun PkosApp(
                         openAiSettings = { navController.navigate(AiSettingsRoute) },
                         openNotionSettings = { navController.navigate(NotionSettingsRoute) },
                         openExport = { navController.navigate(ExportRoute) },
+                        openPrivacy = { navController.navigate(PrivacyRoute) },
                         openCollections = { navController.navigate(CollectionsRoute) },
                         openActions = { navController.navigate(ActionsRoute) },
                         openTimeline = { navController.navigate(TimelineRoute) },
@@ -210,6 +211,13 @@ fun PkosApp(
                 com.pkos.app.feature.knowledge.CollectionDetailRoute(entry.toRoute<CollectionDetailRoute>().id, onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }, edit = { navController.navigate(CollectionEditRoute(it)) })
             }
             composable<CollectionEditRoute> { entry -> val r = entry.toRoute<CollectionEditRoute>(); com.pkos.app.feature.knowledge.CollectionEditorRoute(r.id, r.smart, onDone = { navController.popBackStack() }) }
+            composable<PrivacyRoute> {
+                com.pkos.app.feature.settings.PrivacyRoute(
+                    onBack = { navController.popBackStack() }, openNotion = { navController.navigate(NotionSettingsRoute) }, openBackup = { navController.navigate(BackupSyncRoute) },
+                    // After a full wipe the app starts again from onboarding (settings were reset).
+                    afterWipe = { navController.navigate(OnboardingRoute) { popUpTo(0) { inclusive = true } } },
+                )
+            }
             composable<ExportRoute> { com.pkos.app.feature.knowledge.ExportRoute(onBack = { navController.popBackStack() }) }
             composable<ConnectionsRoute> { entry -> com.pkos.app.feature.knowledge.ConnectionsRoute(entry.toRoute<ConnectionsRoute>().id, onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }) }
             composable<EditItemRoute> { entry -> com.pkos.app.feature.item.EditItemRoute(entry.toRoute<EditItemRoute>().id, onDone = { navController.popBackStack() }) }

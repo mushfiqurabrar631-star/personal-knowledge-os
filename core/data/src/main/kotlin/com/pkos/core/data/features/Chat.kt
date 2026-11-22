@@ -37,7 +37,10 @@ class KnowledgeChat(private val search: SearchService) {
             val sources = all.filter { it.itemId in shareable }.mapIndexed { i, s -> s.copy(n = i + 1) }
             val withheld = all.size - sources.size
             if (sources.isNotEmpty()) {
-                val reply = runCatching { generator.generate(prompt(question, sources)) }.getOrNull()
+                val sent = prompt(question, sources)
+                val reply = runCatching { generator.generate(sent) }.getOrNull()
+                // Spec 10.1 "view recent cloud processing activity": one row per saved item whose text went to the cloud.
+                sources.forEach { src -> CloudAudit.record(search.db, src.itemId, CloudAudit.ASK, "gemini", if (reply == null) "ERROR" else "OK", src.snippet.length, System.currentTimeMillis()) }
                 if (reply != null && reply.contains("NOT_IN_LIBRARY")) return ChatAnswer(null, emptyList(), noSources = true, byCloud = true, localOnlyWithheld = withheld)
                 if (reply != null) {
                     val cited = Regex("\\[(\\d+)]").findAll(reply).map { it.groupValues[1].toInt() }.toSet()

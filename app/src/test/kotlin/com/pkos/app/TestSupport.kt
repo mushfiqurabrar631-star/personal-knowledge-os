@@ -27,6 +27,7 @@ import java.util.UUID
 class InMemorySettings(initial: AppSettings = AppSettings()) : SettingsRepository {
     val state = MutableStateFlow(initial)
     override val settings: Flow<AppSettings> = state
+    override suspend fun clearAll() { state.value = AppSettings() }
     override suspend fun setOnboardingCompleted(done: Boolean) { state.value = state.value.copy(onboardingCompleted = done) }
     override suspend fun setThemeMode(mode: ThemeMode) { state.value = state.value.copy(themeMode = mode) }
     override suspend fun setCloudAiEnabled(enabled: Boolean) { state.value = state.value.copy(cloudAiEnabled = enabled) }

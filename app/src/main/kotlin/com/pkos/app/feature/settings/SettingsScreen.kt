@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.SaveAlt
+import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.automirrored.outlined.ManageSearch
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Schedule
@@ -118,6 +119,7 @@ data class SettingsActions(
     val openAiSettings: () -> Unit = {},
     val openNotionSettings: () -> Unit = {},
     val openExport: () -> Unit = {},
+    val openPrivacy: () -> Unit = {},
     val openCollections: () -> Unit = {},
     val openActions: () -> Unit = {},
     val openTimeline: () -> Unit = {},
@@ -314,6 +316,7 @@ fun SettingsScreen(
                         storage?.let { stringResource(R.string.settings_storage_value, Formatters.bytes(context, it.databaseBytes), Formatters.bytes(context, it.attachmentBytes)) }
                             ?: stringResource(R.string.loading),
                     )
+                    LinkRow(Icons.Outlined.PrivacyTip, stringResource(R.string.privacy_title), stringResource(R.string.settings_privacy_sub), actions.openPrivacy)
                     LinkRow(Icons.Outlined.SaveAlt, stringResource(R.string.settings_export), stringResource(R.string.nav_export), actions.openExport)
                     LinkRow(Icons.Outlined.Key, stringResource(R.string.settings_recovery_key), stringResource(R.string.settings_backup_sync), actions.openBackupSync)
                 }

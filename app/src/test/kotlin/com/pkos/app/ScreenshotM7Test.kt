@@ -62,4 +62,11 @@ class ScreenshotM7Test {
         rule.onNodeWithTag("tab_settings").performClick(); waitFor(hasTestTag("settings_list"))
         rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("switch_reminders")); shot("x04_settings_2x_font_320dp")
     }
+    @Test fun x05_privacyLargeFont() {
+        rule.onNodeWithTag("tab_settings").performClick(); waitFor(hasTestTag("settings_list"))
+        val label = rule.activity.getString(R.string.privacy_title)
+        rule.onNodeWithTag("settings_list").performScrollToNode(hasText(label))
+        rule.onAllNodes(hasText(label), useUnmergedTree = true)[0].performClick(); waitFor(hasTestTag("privacy_screen"))
+        rule.onNodeWithTag("privacy_screen").performScrollToNode(hasTestTag("privacy_wipe_panel")); shot("x05_privacy_controls_2x_font_320dp")
+    }
 }

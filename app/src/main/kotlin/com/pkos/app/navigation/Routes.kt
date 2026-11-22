@@ -22,3 +22,4 @@ import kotlinx.serialization.Serializable
 @Serializable data class CollectionDetailRoute(val id: String)
 @Serializable data class CollectionEditRoute(val id: String? = null, val smart: Boolean = false)
 @Serializable data class ConnectionsRoute(val id: String)
+@Serializable data object PrivacyRoute

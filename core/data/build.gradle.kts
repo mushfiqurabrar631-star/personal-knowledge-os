@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.zip4j)
 
     testImplementation(libs.junit)
     testImplementation(testFixtures(project(":core:notion")))

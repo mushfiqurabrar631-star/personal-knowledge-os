@@ -169,6 +169,7 @@ fun NotionSettingsScreen(
                         FilledTonalButton(onClick = onCheck, enabled = check != CheckState.Running, modifier = Modifier.testTag("notion_check")) { Text(stringResource(R.string.notion_check)) }
                         OutlinedButton(onClick = onRemoveToken, modifier = Modifier.testTag("notion_token_remove")) { Text(stringResource(R.string.notion_token_remove)) }
                     }
+                    Text(stringResource(R.string.notion_disconnect_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text(stringResource(R.string.notion_steps), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(

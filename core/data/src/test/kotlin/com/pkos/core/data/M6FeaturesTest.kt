@@ -282,7 +282,7 @@ class M6FeaturesTest {
         assertFalse(report.getBoolean("secrets_included"))
         assertEquals(sha, report.getJSONObject("sha256").getString("attachments/f1.bin"))
         val withLocal = ByteArrayOutputStream()
-        assertEquals(2, ExportService(db, root, "test", clock).export(withLocal, ExportOptions(includeLocalOnly = true)).items)
+        assertEquals(2, ExportService(db, root, "test", clock).export(withLocal, ExportOptions(includeLocalOnly = true, password = "long-password".toCharArray())).items)
 
         val ok = ExportService(db, root, "test", clock).integrity(null)
         assertTrue(ok.healthy)
