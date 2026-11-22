@@ -149,7 +149,7 @@ Pass = verified in this session by an automated test/check · Pending = needs th
 | 16 | Startup time, memory, battery | Pending | guide #30 |
 | 17 | Migrations v1–v6 | Pass | MigrationTest |
 | 18 | Full regression, lint, debug + release | Pass | section 4 |
-| 19 | §13.2 manual acceptance | Pending | guide #1–#22 |
+| 19 | §13.2 manual acceptance | Pending — 1/22 done | #1 share text ✅ (phone screenshots 2026-11-22); #2–#22 pending; open observation O-1 (guide) |
 | 20 | §13.3 release blockers | Pass (automated) · Pending (real Drive restore, guide #14) | section 6 |
 
 **M7 verdict:** the code work and automated checks for M7 are done. **M7 exit criteria are not met yet:** items 2, 16, 19 and the

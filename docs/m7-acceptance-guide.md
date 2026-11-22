@@ -113,10 +113,15 @@
 
 | # | ফল (✅/❌) | মন্তব্য |
 |---|---|---|
-| 1–7 Capture | | |
+| 1 Share লেখা | ✅ Pass (2026-11-22 08:15) | Samsung Notes থেকে share; "Saved to Inbox"; Inbox-এ আইটেম; পূর্ণ লেখা, উৎস `com.samsung.android.app.notes`, ফোনে সাজানো (80%), প্রস্তাবিত কাজ "No date"। Version 0.7.0-m7-debug। খোলা প্রশ্ন: "আগে প্রায় একই রকম সেভ হয়েছে" বার্তা — যাচাই বাকি (O-1) |
+| 2–7 Capture | | |
 | 8–9 অফলাইন | | |
 | 10–12 Notion | | |
 | 13–15 Drive | | |
 | 16–21 AI ও গোপনীয়তা | | |
 | 22–26 Export ও privacy | | |
 | 27–30 রিমাইন্ডার, a11y, গতি | | |
+
+### খোলা পর্যবেক্ষণ
+- **O-1** (পরীক্ষা ১): নতুন install-এ প্রথম share-এ "Something very similar was saved before" দেখিয়েছে, অথচ Inbox-এ ১টি আইটেম। দুবার share হয়েছিল কিনা, নাকি ভুল duplicate সতর্কতা — Search-এ "ORVIX" দিয়ে আইটেম সংখ্যা দেখে যাচাই করা হবে।
+
