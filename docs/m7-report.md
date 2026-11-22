@@ -164,3 +164,15 @@ Only steps with screenshots from the owner are marked Pass.
 |---|---|---|---|---|
 | 0 Install | 2026-11-22 | Pass | Settings → Version `0.7.0-m7-debug` | CI run #12 artifact |
 | 1 Share text | 2026-11-22 | Pass | Samsung Notes → Share → PKOS: "Saved to Inbox" sheet; Inbox shows the item; detail has the full original text, source `share · com.samsung.android.app.notes · 08:15`, "organized on this phone" (Cloud AI off), suggested tasks with **No date** + Confirm/Dismiss | Observations (not failures yet): O-1 the save sheet named the item after a `.sdocx` file name instead of the note title; O-2 "something very similar was saved before" appeared while Inbox shows 1 item — owner to confirm whether the note was shared twice; O-3 one suggested task reads "Be mandatory to build…", likely a negative sentence ("must not …") cut wrongly — it is only a suggestion, the owner can Dismiss, nothing was created |
+
+## 8. Real-device acceptance results (owner's phone)
+
+Owner decisions: debug keystore → **Option A** (no force-push, no history rewrite), 2026-11-22.
+
+| Guide # | Check | Result | Evidence |
+|---|---|---|---|
+| 0 | Install CI build | **Pass** | Settings shows version `0.7.0-m7-debug` (CI run #12, `13a3c73`) |
+| 1 | Share plain text (Samsung Notes → PKOS) | **Pass** | "Saved to Inbox" sheet; item in Inbox ("Saved on device"); detail shows full original text, source `share · com.samsung.android.app.notes`, organized on the phone (Cloud AI off, 80%), suggested tasks with "No date" + Confirm/Dismiss (no date guessed) |
+| 2–30 | remaining checks | Pending | — |
+
+Note from #1: the save sheet said a very similar item existed; Inbox lists one item (the other may already be organized). To be confirmed with a search (see guide follow-up).
