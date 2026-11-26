@@ -11,6 +11,8 @@ fun interface TextExtractor {
 /** On-device OCR. Returns recognised text (possibly empty). */
 fun interface OcrEngine {
     suspend fun recognize(file: File): String
+    /** OCR for a PDF without a text layer (scanned). null = not supported by this engine. */
+    suspend fun recognizePdf(file: File): String? = null
 }
 
 /** What a classifier sees. Kept minimal on purpose (data minimisation, spec 3). */

@@ -64,6 +64,10 @@ data class KnowledgeItemEntity(
     // v7 (spec 4.4 enrichment): JSON string arrays. AI never overwrites them once the owner edits (field origin USER).
     val keywords: String? = null,
     val entities: String? = null,
+    // v7 (spec 3 link metadata, opt-in): public page title/description; the original capture stays unchanged.
+    @ColumnInfo(name = "link_title") val linkTitle: String? = null,
+    @ColumnInfo(name = "link_description") val linkDescription: String? = null,
+    @ColumnInfo(name = "link_site") val linkSite: String? = null,
 )
 
 @Entity(tableName = "categories", indices = [Index("parent_id"), Index(value = ["name"])])

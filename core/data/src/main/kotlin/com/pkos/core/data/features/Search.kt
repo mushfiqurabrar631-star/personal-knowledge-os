@@ -75,7 +75,7 @@ class SearchService(internal val db: PkosDatabase, private val clock: () -> Long
             dao.insertFts(
                 KnowledgeFtsEntity(
                     rowId = rowId, itemId = id, indexedAt = maxOf(i.updatedAt, clock()), title = i.title,
-                    content = listOfNotNull(i.rawText, i.summary, i.userNote, ocr).joinToString("\n").take(100_000),
+                    content = listOfNotNull(i.rawText, i.summary, i.userNote, i.linkTitle, i.linkDescription, ocr).joinToString("\n").take(100_000),
                     // Tags plus AI/local keywords and named entities (spec 4.4) are searchable words.
                     tags = (tags[id].orEmpty() + jsonWords(i.keywords) + jsonWords(i.entities)).joinToString(" "),
                     topics = listOfNotNull(i.categoryId?.let { cats[it] }, i.topicId?.let { topics[it]?.name }, i.subtopicId?.let { topics[it]?.name }).joinToString(" "),

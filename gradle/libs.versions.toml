@@ -26,6 +26,7 @@ playServicesAuth = "22.0.0"
 pdfbox = "2.0.27.0"
 zip4j = "2.11.5"
 mlkitText = "16.0.1"
+tessTwo = "9.1.0"
 
 [libraries]
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
@@ -37,6 +38,8 @@ pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfbo
 # Password-protected (AES-256) export ZIP — spec 10 "protect archive if it contains private material"
 zip4j = { module = "net.lingala.zip4j:zip4j", version.ref = "zip4j" }
 mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkitText" }
+# Offline Bengali OCR (Tesseract 3.05, Apache-2.0) — owner decision 2026-11-27: images never go to the cloud for OCR
+tess-two = { module = "com.rmtheis:tess-two", version.ref = "tessTwo" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }

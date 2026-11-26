@@ -657,4 +657,7 @@
     <string name="item_keywords">মূল শব্দ</string>
     <string name="item_entities">নাম ও বিষয়</string>
     <string name="graph_reason_ai_related">AI-র মতে সম্পর্কিত</string>
+    <string name="settings_link_previews">লিংকের শিরোনাম ও বিবরণ আনুন</string>
+    <string name="settings_link_previews_body">ডিফল্টভাবে বন্ধ। চালু করলে শেয়ার করা লিংকের প্রকাশ্য শিরোনাম/বিবরণ আনা হয় (YouTube-এর জন্য YouTube-এর প্রকাশ্য সেবা)। এতে ওই ওয়েবসাইট অনুরোধটি দেখতে পায়। “শুধু ফোনে” আইটেমের জন্য কখনো নয়।</string>
+    <string name="item_section_link">লিংকের তথ্য</string>
 </resources>

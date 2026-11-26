@@ -98,6 +98,7 @@ dependencies {
     implementation(libs.play.services.auth)
     implementation(libs.pdfbox.android)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.tess.two)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)

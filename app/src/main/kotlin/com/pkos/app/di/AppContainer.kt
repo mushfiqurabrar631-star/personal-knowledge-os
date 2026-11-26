@@ -67,7 +67,7 @@ class AppContainer(
     val settings: SettingsRepository,
     freeBytes: () -> Long = { android.os.StatFs(context.filesDir.path).availableBytes },
     val secrets: com.pkos.app.processing.SecretStore = com.pkos.app.processing.KeystoreSecretStore(context),
-    ocr: com.pkos.core.data.processing.OcrEngine? = com.pkos.app.processing.MlKitOcrEngine(context),
+    ocr: com.pkos.core.data.processing.OcrEngine? = com.pkos.app.processing.CombinedOcrEngine(context),
     private val http: com.pkos.core.data.processing.HttpPost = com.pkos.app.processing.UrlConnectionHttp,
     notionTransport: com.pkos.core.notion.api.HttpTransport = com.pkos.app.notion.OkHttpNotionTransport(),
     driveOverride: com.pkos.core.data.backup.DriveApi? = null,
@@ -168,6 +168,10 @@ class AppContainer(
     val reminders = com.pkos.core.data.features.ReminderService(database)
     val reminderScheduler = com.pkos.app.features.ReminderScheduler(context)
     val exporter by lazy { com.pkos.core.data.features.ExportService(database, java.io.File(context.filesDir, StorageRepository.ATTACHMENTS_DIR), appVersion) }
+
+    /** Opt-in link previews (spec 3). Replaced in tests. */
+    var linkGet: com.pkos.core.data.processing.HttpGet = com.pkos.app.processing.UrlConnectionHttp
+    val linkMeta by lazy { com.pkos.core.data.features.LinkMetadataService(database, com.pkos.core.data.processing.HttpGet { u, h, m -> linkGet.get(u, h, m) }) }
 
     // ---- Spec 10.1 privacy controls ----
     val privacy by lazy { com.pkos.core.data.features.PrivacyService(database, java.io.File(context.filesDir, StorageRepository.ATTACHMENTS_DIR)) }

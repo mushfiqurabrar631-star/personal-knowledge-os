@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.SaveAlt
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.automirrored.outlined.ManageSearch
 import androidx.compose.material.icons.outlined.NotificationsActive
@@ -106,6 +107,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setSemantic(on: Boolean) { viewModelScope.launch { container.settings.updateFeatures(semantic = on, reminders = null, reminderDays = null) } }
     /** Reminders are opt-in: the daily check is scheduled only while the owner keeps this on. */
     fun setReminders(on: Boolean) { viewModelScope.launch { container.settings.updateFeatures(semantic = null, reminders = on, reminderDays = null); container.reminderScheduler.set(on) } }
+    fun setLinkPreviews(on: Boolean) { viewModelScope.launch { container.settings.setLinkPreviews(on) } }
     fun setReminderDays(d: Int) { viewModelScope.launch { container.settings.updateFeatures(semantic = null, reminders = null, reminderDays = d) } }
     fun replayOnboarding(then: () -> Unit) { viewModelScope.launch { container.settings.setOnboardingCompleted(false); then() } }
 }
@@ -198,6 +200,7 @@ fun SettingsRoute(actions: SettingsActions) {
             if (on && android.os.Build.VERSION.SDK_INT >= 33 && notifications != PermissionState.GRANTED) notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         },
         onReminderDays = vm::setReminderDays,
+        onLinkPreviews = vm::setLinkPreviews,
     )
 }
 
@@ -231,6 +234,7 @@ fun SettingsScreen(
     onSemantic: (Boolean) -> Unit = {},
     onReminders: (Boolean) -> Unit = {},
     onReminderDays: (Int) -> Unit = {},
+    onLinkPreviews: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     Scaffold(
@@ -285,6 +289,7 @@ fun SettingsScreen(
             item {
                 Group {
                     SwitchRow(Icons.AutoMirrored.Outlined.ManageSearch, stringResource(R.string.settings_semantic), stringResource(R.string.settings_semantic_body), settings.semanticSearchEnabled, onSemantic, "semantic")
+                    SwitchRow(Icons.Outlined.Link, stringResource(R.string.settings_link_previews), stringResource(R.string.settings_link_previews_body), settings.linkPreviewsEnabled, onLinkPreviews, "link_previews")
                     SwitchRow(Icons.Outlined.NotificationsActive, stringResource(R.string.settings_reminders), stringResource(R.string.settings_reminders_body), settings.remindersEnabled, onReminders, "reminders")
                     if (settings.remindersEnabled) {
                         val days = listOf(3, 7, 14, 30)

@@ -638,4 +638,7 @@
     <string name="item_keywords">Keywords</string>
     <string name="item_entities">Names mentioned</string>
     <string name="graph_reason_ai_related">Related (AI)</string>
+    <string name="settings_link_previews">Fetch link titles and descriptions</string>
+    <string name="settings_link_previews_body">Off by default. When on, the public title/description of shared links is fetched (YouTube\'s public service for YouTube). The website sees the request. Never for local-only items.</string>
+    <string name="item_section_link">Link preview</string>
 </resources>

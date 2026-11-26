@@ -58,7 +58,7 @@ class MlKitOcrEngine(private val context: Context) : OcrEngine {
 }
 
 /** HttpURLConnection transport (no extra HTTP library). Bodies are never logged. */
-object UrlConnectionHttp : HttpPost {
+object UrlConnectionHttp : HttpPost, com.pkos.core.data.processing.HttpGet {
     override suspend fun post(url: String, headers: Map<String, String>, body: String): HttpReply = withContext(Dispatchers.IO) {
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true; connectTimeout = 15_000; readTimeout = 45_000
@@ -70,6 +70,27 @@ object UrlConnectionHttp : HttpPost {
             val stream = if (status in 200..299) c.inputStream else c.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             HttpReply(status, text, c.getHeaderField("Retry-After")?.toLongOrNull())
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    /** Size-capped GET for link previews. HTTPS only; redirects to another protocol are not followed. */
+    override suspend fun get(url: String, headers: Map<String, String>, maxBytes: Int): HttpReply = withContext(Dispatchers.IO) {
+        require(url.startsWith("https://", ignoreCase = true))
+        val c = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"; instanceFollowRedirects = true; connectTimeout = 10_000; readTimeout = 15_000
+            setRequestProperty("User-Agent", "PKOS link preview (Android)")
+            headers.forEach { (k, v) -> setRequestProperty(k, v) }
+        }
+        try {
+            val status = c.responseCode
+            if (!c.url.protocol.equals("https", true)) return@withContext HttpReply(0, "")
+            val stream = if (status in 200..299) c.inputStream else c.errorStream
+            val bytes = stream?.use { s -> val out = java.io.ByteArrayOutputStream(); val b = ByteArray(16_384); var total = 0
+                while (total < maxBytes) { val n = s.read(b, 0, minOf(b.size, maxBytes - total)); if (n < 0) break; out.write(b, 0, n); total += n }
+                out.toByteArray() } ?: ByteArray(0)
+            HttpReply(status, String(bytes, Charsets.UTF_8))
         } finally {
             c.disconnect()
         }

@@ -315,6 +315,9 @@ fun ItemDetailScreen(
                             }
                         }
                     }
+                    if (item.linkTitle != null || item.linkDescription != null) Section(stringResource(R.string.item_section_link)) {
+                        Body(listOfNotNull(item.linkSite, item.linkTitle, item.linkDescription).joinToString("\n"))
+                    }
                     item.rawText?.takeIf { it.isNotBlank() }?.let { Section(stringResource(R.string.item_section_original)) { SelectionContainer { Body(it) } } }
                     d.attachments.mapNotNull { it.extractedText }.takeIf { it.isNotEmpty() }?.let { texts ->
                         Section(stringResource(R.string.item_section_file_text)) {

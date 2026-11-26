@@ -39,6 +39,12 @@ data class AppSettings(
     /** Forgotten-knowledge notifications are opt-in (spec 9 #8). */
     val remindersEnabled: Boolean = false,
     val reminderIntervalDays: Int = 7,
+    /** Spec 3: fetch public page title/description for shared links. Off by default (the site sees the request). */
+    val linkPreviewsEnabled: Boolean = false,
+    /** Spec 4.6 provider switch: "gemini" or "openai_compat" (owner's own key and endpoint). */
+    val aiProvider: String = "gemini",
+    val compatBaseUrl: String = "",
+    val compatModel: String = "",
 )
 
 interface SettingsRepository {
@@ -52,6 +58,8 @@ interface SettingsRepository {
     suspend fun setNotionSyncEnabled(enabled: Boolean)
     suspend fun updateBackup(transform: (AppSettings) -> AppSettings)
     suspend fun updateFeatures(semantic: Boolean? = null, reminders: Boolean? = null, reminderDays: Int? = null)
+    suspend fun setLinkPreviews(enabled: Boolean)
+    suspend fun setAiProvider(provider: String, baseUrl: String, model: String)
     /** Spec 10.1 "delete all data": back to first-run defaults (onboarding shows again). */
     suspend fun clearAll()
 }
@@ -79,6 +87,10 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         val retWeekly = androidx.datastore.preferences.core.intPreferencesKey("retention_weekly")
         val retMonthly = androidx.datastore.preferences.core.intPreferencesKey("retention_monthly")
         val semantic = booleanPreferencesKey("semantic_search")
+        val linkPreviews = booleanPreferencesKey("link_previews")
+        val aiProvider = stringPreferencesKey("ai_provider")
+        val compatBaseUrl = stringPreferencesKey("compat_base_url")
+        val compatModel = stringPreferencesKey("compat_model")
         val reminders = booleanPreferencesKey("reminders_enabled")
         val reminderDays = androidx.datastore.preferences.core.intPreferencesKey("reminder_days")
     }
@@ -100,6 +112,10 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
             retentionWeekly = p[Keys.retWeekly] ?: 4,
             retentionMonthly = p[Keys.retMonthly] ?: 6,
             semanticSearchEnabled = p[Keys.semantic] ?: true,
+            linkPreviewsEnabled = p[Keys.linkPreviews] ?: false,
+            aiProvider = p[Keys.aiProvider] ?: "gemini",
+            compatBaseUrl = p[Keys.compatBaseUrl] ?: "",
+            compatModel = p[Keys.compatModel] ?: "",
             remindersEnabled = p[Keys.reminders] ?: false,
             reminderIntervalDays = p[Keys.reminderDays] ?: 7,
         )
@@ -112,6 +128,11 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
     override suspend fun setFloatingCaptureEnabled(enabled: Boolean) { store.edit { it[Keys.floating] = enabled } }
     override suspend fun setAiModel(model: String) { store.edit { it[Keys.aiModel] = model.trim() } }
     override suspend fun setNotionSyncEnabled(enabled: Boolean) { store.edit { it[Keys.notionSync] = enabled } }
+    override suspend fun setLinkPreviews(enabled: Boolean) { store.edit { it[Keys.linkPreviews] = enabled } }
+    override suspend fun setAiProvider(provider: String, baseUrl: String, model: String) {
+        store.edit { it[Keys.aiProvider] = provider; it[Keys.compatBaseUrl] = baseUrl.trim(); it[Keys.compatModel] = model.trim() }
+    }
+
     override suspend fun updateFeatures(semantic: Boolean?, reminders: Boolean?, reminderDays: Int?) {
         store.edit { p ->
             semantic?.let { p[Keys.semantic] = it }

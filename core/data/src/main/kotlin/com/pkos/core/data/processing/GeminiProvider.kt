@@ -11,6 +11,11 @@ fun interface HttpPost {
 
 data class HttpReply(val status: Int, val body: String, val retryAfterSeconds: Long? = null)
 
+/** Plain GET with a size cap (link metadata). Implementations follow HTTPS redirects only. */
+fun interface HttpGet {
+    suspend fun get(url: String, headers: Map<String, String>, maxBytes: Int): HttpReply
+}
+
 /**
  * Google Gemini (user-supplied API key, free tier). Sends only title, text (trimmed), URL, platform and the allowed
  * category names — never files, notes or other items. The key goes in a header, never in the URL or logs.

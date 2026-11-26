@@ -9,6 +9,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.pkos.app.PkosApplication
 import com.pkos.core.data.processing.ProcessOutcome
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /** Runs [com.pkos.core.data.processing.ProcessingEngine] for one item; survives app death and reboot (WorkManager). */
@@ -16,6 +17,8 @@ class ProcessingWorker(context: Context, params: WorkerParameters) : CoroutineWo
     override suspend fun doWork(): Result {
         val id = inputData.getString(KEY_ITEM) ?: return Result.failure()
         val container = (applicationContext as PkosApplication).container
+        // Opt-in link preview first, so the organizer can use the page title (spec 3). Never blocks processing.
+        if (container.settings.settings.first().linkPreviewsEnabled) runCatching { container.linkMeta.fetchFor(id) }
         return when (val out = container.processing.process(id, container.cloudProvider())) {
             is ProcessOutcome.Retry -> { container.scheduler.enqueue(id, out.delayMs); Result.success() }
             is ProcessOutcome.Done -> {

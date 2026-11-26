@@ -80,7 +80,10 @@ class ProcessingEngine(
         val texts = db.attachmentDao().forItem(item.id).mapNotNull { it.extractedText }
         val input = AiInput(
             title = fresh.title,
-            text = listOfNotNull(fresh.rawText, *texts.toTypedArray()).joinToString("\n\n").take(MAX_INPUT_CHARS),
+            text = listOfNotNull(
+                listOfNotNull(fresh.linkTitle, fresh.linkDescription).joinToString(" — ").ifBlank { null }, // opt-in link preview
+                fresh.rawText, *texts.toTypedArray(),
+            ).joinToString("\n\n").take(MAX_INPUT_CHARS),
             url = fresh.sourceUrl,
             platform = fresh.sourcePlatform?.name?.lowercase(),
             contentTypeHint = fresh.contentType?.name?.lowercase(),
@@ -259,7 +262,11 @@ class ProcessingEngine(
             val engine = ocr ?: run { db.attachmentDao().setExtracted(a.id, ExtractionStatus.UNSUPPORTED, null); return }
             engine.recognize(file)
         } else {
-            extractor.extract(file, a.mimeType) ?: run { db.attachmentDao().setExtracted(a.id, ExtractionStatus.UNSUPPORTED, null); return }
+            val extracted = extractor.extract(file, a.mimeType)
+            // Scanned PDF (no text layer): OCR its pages on the phone when an engine is available (spec 3).
+            val scanned = if (extracted.isNullOrBlank() && a.mimeType == "application/pdf") ocr?.recognizePdf(file) else null
+            (extracted?.takeIf { it.isNotBlank() } ?: scanned ?: extracted)
+                ?: run { db.attachmentDao().setExtracted(a.id, ExtractionStatus.UNSUPPORTED, null); return }
         }
         db.attachmentDao().setExtracted(a.id, ExtractionStatus.DONE, text.trim().take(MAX_EXTRACT_CHARS).ifBlank { null })
     }
