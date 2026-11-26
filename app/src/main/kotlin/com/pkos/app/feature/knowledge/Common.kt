@@ -64,7 +64,7 @@ fun edgeReasonLabel(code: String): String = stringResource(
     when (code) {
         "category" -> R.string.graph_reason_category; "topic" -> R.string.graph_reason_topic; "subtopic" -> R.string.graph_reason_subtopic
         "tag" -> R.string.graph_reason_tag; "shared_tags" -> R.string.graph_reason_shared_tags; "same_topic" -> R.string.graph_reason_same_topic
-        "duplicate" -> R.string.graph_reason_duplicate; "user_link" -> R.string.graph_reason_user_link
+        "duplicate" -> R.string.graph_reason_duplicate; "user_link" -> R.string.graph_reason_user_link; "ai_related" -> R.string.graph_reason_ai_related
         else -> R.string.graph_reason_similar_text
     },
 )

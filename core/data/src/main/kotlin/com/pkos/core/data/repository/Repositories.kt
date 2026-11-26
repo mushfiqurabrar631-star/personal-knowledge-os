@@ -133,7 +133,9 @@ class KnowledgeRepository(private val db: PkosDatabase, private val clock: () ->
         val scope = if (localOnly) com.pkos.core.data.model.PrivacyScope.LOCAL_ONLY else com.pkos.core.data.model.PrivacyScope.NORMAL
         if (item.privacyScope == scope) return
         db.withTransaction {
-            dao.update(item.copy(privacyScope = scope, updatedAt = clock()))
+            // The owner's choice wins over automatic sensitive-data detection from now on.
+            val origins = runCatching { org.json.JSONObject(item.fieldOrigins) }.getOrElse { org.json.JSONObject() }.put("privacy", com.pkos.core.data.model.FieldOrigin.USER.name)
+            dao.update(item.copy(privacyScope = scope, updatedAt = clock(), fieldOrigins = origins.toString()))
             if (localOnly) db.featureDao().deleteEmbeddings(id)
         }
     }

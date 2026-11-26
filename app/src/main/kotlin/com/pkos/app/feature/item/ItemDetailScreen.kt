@@ -303,6 +303,16 @@ fun ItemDetailScreen(
                                     d.tags.forEach { t -> AssistChip(onClick = {}, label = { Text(t.name) }) }
                                 }
                             }
+                            // Spec 4.4 enrichment: search words and names found in the content.
+                            for ((label, json) in listOf(R.string.item_keywords to item.keywords, R.string.item_entities to item.entities)) {
+                                val words = com.pkos.core.data.features.SearchService.jsonWords(json)
+                                if (words.isNotEmpty()) {
+                                    Text(stringResource(label), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.testTag("item_${if (label == R.string.item_keywords) "keywords" else "entities"}")) {
+                                        words.forEach { w -> AssistChip(onClick = {}, label = { Text(w) }) }
+                                    }
+                                }
+                            }
                         }
                     }
                     item.rawText?.takeIf { it.isNotBlank() }?.let { Section(stringResource(R.string.item_section_original)) { SelectionContainer { Body(it) } } }
@@ -444,6 +454,7 @@ private fun reviewReasonText(raw: String): String = when (raw) {
     com.pkos.core.data.processing.ReviewReason.CLOUD_QUOTA -> stringResource(R.string.reason_cloud_quota)
     com.pkos.core.data.processing.ReviewReason.CLOUD_AUTH -> stringResource(R.string.reason_cloud_auth)
     com.pkos.core.data.processing.ReviewReason.CLOUD_UNAVAILABLE -> stringResource(R.string.reason_cloud_unavailable)
+    com.pkos.core.data.processing.ReviewReason.SENSITIVE_LOCAL -> stringResource(R.string.reason_sensitive_local)
     else -> raw
 }
 
@@ -452,10 +463,10 @@ private fun reviewReasonText(raw: String): String = when (raw) {
 private fun NotionStatusSection(item: com.pkos.core.data.db.entity.KnowledgeItemEntity, n: NotionItemState, actions: ItemActions) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val state = item.syncState
-    if (state == com.pkos.core.data.model.SyncState.LOCAL_ONLY && n.mapping == null && n.job == null) return
+    if ((state == com.pkos.core.data.model.SyncState.LOCAL_ONLY || state == com.pkos.core.data.model.SyncState.BACKED_UP) && n.mapping == null && n.job == null) return
     Section(stringResource(R.string.item_section_notion)) {
         val line = when (state) {
-            com.pkos.core.data.model.SyncState.NOTION_SYNCED -> stringResource(R.string.notion_item_synced, n.mapping?.lastSyncedAt?.let { Formatters.dateTime(it) } ?: "")
+            com.pkos.core.data.model.SyncState.NOTION_SYNCED, com.pkos.core.data.model.SyncState.SYNCED -> stringResource(R.string.notion_item_synced, n.mapping?.lastSyncedAt?.let { Formatters.dateTime(it) } ?: "")
             com.pkos.core.data.model.SyncState.NOTION_QUEUED -> stringResource(R.string.notion_item_queued)
             com.pkos.core.data.model.SyncState.ERROR_RETRYABLE -> stringResource(R.string.notion_item_retry, notionReason(n.job?.lastErrorCode))
             com.pkos.core.data.model.SyncState.ERROR_ACTION_REQUIRED -> stringResource(R.string.notion_item_action, notionReason(n.job?.lastErrorCode))

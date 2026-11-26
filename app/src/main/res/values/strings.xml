@@ -637,4 +637,24 @@
     <string name="export_password">পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)</string>
     <string name="export_password_again">আবার পাসওয়ার্ড</string>
     <string name="export_password_mismatch">দুটি পাসওয়ার্ড মেলেনি</string>
+    <string name="platform_facebook">Facebook</string>
+    <string name="platform_youtube">YouTube</string>
+    <string name="platform_instagram">Instagram</string>
+    <string name="platform_chrome">Chrome</string>
+    <string name="platform_web">ওয়েব</string>
+    <string name="platform_whatsapp">WhatsApp</string>
+    <string name="platform_messenger">Messenger</string>
+    <string name="platform_telegram">Telegram</string>
+    <string name="platform_gallery">গ্যালারি</string>
+    <string name="platform_files">ফাইল</string>
+    <string name="platform_clipboard">ক্লিপবোর্ড</string>
+    <string name="platform_manual">নিজে লেখা</string>
+    <string name="platform_other">অন্যান্য</string>
+    <string name="search_filter_topic">টপিক</string>
+    <string name="search_filter_platform">উৎস</string>
+    <string name="search_filter_backed_up">ব্যাকআপ হয়েছে</string>
+    <string name="reason_sensitive_local">পাসওয়ার্ড, কার্ড নম্বর, OTP, কী বা পরিচয় নম্বরের মতো তথ্য আছে মনে হচ্ছে—তাই ফোনেই রাখা হয়েছে, ক্লাউডে পাঠানো হয়নি।</string>
+    <string name="item_keywords">মূল শব্দ</string>
+    <string name="item_entities">নাম ও বিষয়</string>
+    <string name="graph_reason_ai_related">AI-র মতে সম্পর্কিত</string>
 </resources>

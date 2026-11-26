@@ -410,7 +410,7 @@ interface NotionDao {
     @Query(
         """
         SELECT
-          (SELECT COUNT(*) FROM knowledge_items WHERE sync_state = 'NOTION_SYNCED') AS synced,
+          (SELECT COUNT(*) FROM knowledge_items WHERE sync_state IN ('NOTION_SYNCED','SYNCED')) AS synced,
           (SELECT COUNT(*) FROM knowledge_items WHERE sync_state IN ('NOTION_QUEUED','ERROR_RETRYABLE')) AS queued,
           (SELECT COUNT(*) FROM knowledge_items WHERE sync_state IN ('CONFLICT','ERROR_ACTION_REQUIRED')) AS needs_action
         """,
@@ -434,6 +434,17 @@ interface BackupDao {
 
     @Query("SELECT * FROM backup_snapshots WHERE status = 'VERIFIED' ORDER BY created_at DESC")
     suspend fun verified(): List<BackupSnapshotEntity>
+
+    @Query("SELECT MAX(created_at) FROM backup_snapshots WHERE status = 'VERIFIED'")
+    suspend fun latestVerifiedAt(): Long?
+
+    /**
+     * Spec 8.5: items whose current version is inside a verified backup become BACKED_UP, or SYNCED when Notion is
+     * already confirmed. Queued, error and conflict states keep priority. A later edit moves them back (DB trigger).
+     */
+    @Query("""UPDATE knowledge_items SET sync_state = CASE sync_state WHEN 'NOTION_SYNCED' THEN 'SYNCED' ELSE 'BACKED_UP' END
+        WHERE updated_at <= :snapshotAt AND deleted_at IS NULL AND sync_state IN ('LOCAL_ONLY','BACKUP_QUEUED','NOTION_SYNCED')""")
+    suspend fun markBackedUp(snapshotAt: Long): Int
 
     @Query("SELECT * FROM backup_snapshots WHERE status != 'PRUNED' ORDER BY created_at DESC LIMIT 30")
     fun observeRecent(): Flow<List<BackupSnapshotEntity>>

@@ -104,6 +104,10 @@ class NotionSyncService(
 
     suspend fun itemsNeedingSync(): List<String> = dao.itemsNeedingSync()
 
+    /** Not going to Notion: BACKED_UP if this version is in a verified backup, else LOCAL_ONLY (spec 8.5). */
+    private suspend fun notInNotionState(updatedAt: Long): SyncState =
+        if ((db.backupDao().latestVerifiedAt() ?: Long.MIN_VALUE) >= updatedAt) SyncState.BACKED_UP else SyncState.LOCAL_ONLY
+
     suspend fun markQueued(itemId: String) {
         val item = db.knowledgeDao().get(itemId) ?: return
         if (item.syncState != SyncState.CONFLICT) dao.setSyncState(itemId, SyncState.NOTION_QUEUED)
@@ -124,7 +128,7 @@ class NotionSyncService(
     suspend fun sync(itemId: String, attempt: Int = 0, resolution: ConflictResolution? = null): NotionSyncResult {
         val item = db.knowledgeDao().get(itemId) ?: return NotionSyncResult.Skipped
         if (item.deletedAt != null || item.privacyScope == com.pkos.core.data.model.PrivacyScope.LOCAL_ONLY) {
-            dao.setSyncState(itemId, SyncState.LOCAL_ONLY); return NotionSyncResult.Skipped
+            dao.setSyncState(itemId, notInNotionState(item.updatedAt)); return NotionSyncResult.Skipped
         }
         if (dao.conflict(itemId) != null && resolution == null) return NotionSyncResult.Conflict
         val mapping = dao.mapping(itemId)
@@ -169,7 +173,9 @@ class NotionSyncService(
                     )
                     if (refs.isNotEmpty()) dao.markAttached(refs.map { it.first.id })
                     dao.clearConflict(itemId)
-                    dao.setSyncState(itemId, SyncState.NOTION_SYNCED)
+                    // SYNCED = every configured destination has this version (spec 8.5): Notion now, and a verified backup.
+                    val backedUp = (db.backupDao().latestVerifiedAt() ?: Long.MIN_VALUE) >= item.updatedAt
+                    dao.setSyncState(itemId, if (backedUp) SyncState.SYNCED else SyncState.NOTION_SYNCED)
                 }
                 record(itemId, attempt, NotionSyncResult.Synced(out.link.pageUrl, out.created))
             }
@@ -184,7 +190,7 @@ class NotionSyncService(
                 )
                 record(itemId, attempt, NotionSyncResult.Conflict)
             }
-            is SyncOutcome.NotEligible -> { dao.setSyncState(itemId, SyncState.LOCAL_ONLY); NotionSyncResult.Skipped }
+            is SyncOutcome.NotEligible -> { dao.setSyncState(itemId, notInNotionState(item.updatedAt)); NotionSyncResult.Skipped }
         }
     }
 

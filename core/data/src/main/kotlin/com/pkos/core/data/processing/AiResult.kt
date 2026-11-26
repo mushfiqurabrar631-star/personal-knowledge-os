@@ -25,6 +25,10 @@ data class AiResult(
     val subtopic: String? = null,
     /** Cloud-suggested actions; stored only as PROPOSED, never with dates. */
     val actionItems: List<String> = emptyList(),
+    val keywords: List<String> = emptyList(),
+    val entities: List<String> = emptyList(),
+    /** Refs (r1, r2 …) of candidate items the model says are related; mapped back to item ids by the engine. */
+    val relatedRefs: List<String> = emptyList(),
 )
 
 sealed interface ParsedAi {
@@ -68,7 +72,11 @@ object AiResultParser {
             val categoryName = str("main_category", required = false, max = 120).getOrThrow()
             val topic = str("topic", required = false, max = 120).getOrThrow()
             val subtopic = str("subtopic", required = false, max = 120).getOrThrow()
-            val actions = list("action_items").getOrThrow().map { it.take(200) }.take(6)
+            // Spec 4.4 allows [{"text":…,"due_date":null}] as well as plain strings. Any due date is ignored (spec 9 #7).
+            val actions = actionList(json).getOrThrow().map { it.take(200) }.take(6)
+            val keywords = list("keywords").getOrThrow().map { it.take(40) }.distinctBy { it.lowercase() }.take(10)
+            val entities = list("entities").getOrThrow().map { it.take(60) }.distinctBy { it.lowercase() }.take(10)
+            val related = list("related_item_ids").getOrThrow().take(5)
             val typeRaw = str("content_type", required = true, max = 40).getOrThrow()?.lowercase()
             val type = TYPES[typeRaw] ?: return ParsedAi.Invalid("content_type '$typeRaw' not allowed")
             val purpose = list("purpose").getOrThrow().map { it.lowercase() }
@@ -96,10 +104,22 @@ object AiResultParser {
             }
             var review = needsReview
             if (categoryName != null && categoryId == null) { review = true; reason = reason ?: ReviewReason.UNKNOWN_CATEGORY }
-            ParsedAi.Valid(AiResult(title, summary, categoryId, topic, type, purpose.distinct(), tags, priority, status, confidence, review, reason, subtopic, actions))
+            ParsedAi.Valid(AiResult(title, summary, categoryId, topic, type, purpose.distinct(), tags, priority, status, confidence, review, reason, subtopic, actions, keywords, entities, related))
         } catch (e: IllegalArgumentException) {
             ParsedAi.Invalid(e.message ?: "invalid")
         }
+    }
+
+    private fun actionList(json: JSONObject): Result<List<String>> {
+        if (!json.has("action_items") || json.isNull("action_items")) return Result.success(emptyList())
+        val arr = json.opt("action_items") as? JSONArray ?: return Result.failure(IllegalArgumentException("action_items must be an array"))
+        return Result.success((0 until arr.length()).mapNotNull { i ->
+            when (val v = arr.opt(i)) {
+                is String -> v
+                is JSONObject -> v.optString("text").takeIf { it.isNotBlank() }
+                else -> return Result.failure(IllegalArgumentException("action_items[$i] must be text"))
+            }?.trim()?.takeIf { it.isNotEmpty() }
+        })
     }
 
     private fun stripFences(raw: String): String {
@@ -114,5 +134,6 @@ object AiResultParser {
         put("purpose", JSONArray(r.purpose)); put("tags", JSONArray(r.tags)); put("priority", r.priority.name.lowercase())
         put("status", r.status.name.lowercase()); put("confidence", r.confidence); put("needs_review", r.needsReview)
         put("review_reason", r.reviewReason ?: JSONObject.NULL)
+        put("keywords", JSONArray(r.keywords)); put("entities", JSONArray(r.entities))
     }.toString()
 }

@@ -29,6 +29,7 @@ data class SearchFilters(
     val status: ItemStatus? = null,
     val pinned: Boolean? = null,
     val notionSynced: Boolean? = null,
+    val backedUp: Boolean? = null,
 ) {
     val isEmpty get() = this == SearchFilters()
     fun accepts(i: KnowledgeItemEntity): Boolean =
@@ -36,7 +37,8 @@ data class SearchFilters(
             (type == null || i.contentType == type) && (platform == null || i.sourcePlatform == platform) &&
             (from == null || i.createdAt >= from) && (to == null || i.createdAt <= to) && (priority == null || i.priority == priority) &&
             (status == null || i.status == status) && (pinned == null || i.pinned == pinned) &&
-            (notionSynced == null || (i.syncState == SyncState.NOTION_SYNCED || i.syncState == SyncState.SYNCED) == notionSynced)
+            (notionSynced == null || (i.syncState == SyncState.NOTION_SYNCED || i.syncState == SyncState.SYNCED) == notionSynced) &&
+            (backedUp == null || (i.syncState == SyncState.BACKED_UP || i.syncState == SyncState.SYNCED) == backedUp)
 }
 
 enum class MatchReason { KEYWORD, RELATED_WORD, SIMILAR_SPELLING, MEANING }
@@ -74,7 +76,8 @@ class SearchService(internal val db: PkosDatabase, private val clock: () -> Long
                 KnowledgeFtsEntity(
                     rowId = rowId, itemId = id, indexedAt = maxOf(i.updatedAt, clock()), title = i.title,
                     content = listOfNotNull(i.rawText, i.summary, i.userNote, ocr).joinToString("\n").take(100_000),
-                    tags = tags[id].orEmpty().joinToString(" "),
+                    // Tags plus AI/local keywords and named entities (spec 4.4) are searchable words.
+                    tags = (tags[id].orEmpty() + jsonWords(i.keywords) + jsonWords(i.entities)).joinToString(" "),
                     topics = listOfNotNull(i.categoryId?.let { cats[it] }, i.topicId?.let { topics[it]?.name }, i.subtopicId?.let { topics[it]?.name }).joinToString(" "),
                     url = i.sourceUrl.orEmpty(),
                 ),
@@ -153,6 +156,9 @@ class SearchService(internal val db: PkosDatabase, private val clock: () -> Long
 
     companion object {
         fun tokens(q: String, max: Int = 8): List<String> = q.lowercase().split(Regex("[^\\p{L}\\p{N}\\p{M}]+")).filter { it.length >= 2 }.distinct().take(max)
+        fun jsonWords(json: String?): List<String> = json?.let { j ->
+            runCatching { org.json.JSONArray(j).let { a -> (0 until a.length()).map { a.optString(it) } } }.getOrDefault(emptyList())
+        }.orEmpty()
         fun trigrams(w: String): Set<String> = " $w ".windowed(3).toSet()
         fun jaccard(a: Set<String>, b: Set<String>): Double = if (a.isEmpty() || b.isEmpty()) 0.0 else a.intersect(b).size.toDouble() / a.union(b).size
 

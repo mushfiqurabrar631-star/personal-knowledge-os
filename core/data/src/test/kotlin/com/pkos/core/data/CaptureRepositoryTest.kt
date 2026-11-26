@@ -139,7 +139,7 @@ class CaptureRepositoryTest {
 class MigrationTest {
     @get:Rule val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), PkosDatabase::class.java)
 
-    @Test fun v1ToV6KeepsExistingItems() {
+    @Test fun v1ToV7KeepsExistingItems() {
         val name = "migration-test.db"
         helper.createDatabase(name, 1).apply {
             execSQL(
@@ -159,6 +159,9 @@ class MigrationTest {
         helper.runMigrationsAndValidate(name, 4, true).close()
         helper.runMigrationsAndValidate(name, 5, true).close()
         helper.runMigrationsAndValidate(name, 6, true).close()
+        helper.runMigrationsAndValidate(name, 7, true).use { d -> // v7 adds nullable keywords/entities only
+            d.query("SELECT title, keywords, entities FROM knowledge_items WHERE id = 'old-1'").use { c -> assertTrue(c.moveToFirst()); assertEquals("পুরোনো আইটেম", c.getString(0)); assertTrue(c.isNull(1) && c.isNull(2)) }
+        }
         // Room itself opens the migrated file without a destructive fallback.
         val room = Room.databaseBuilder(ApplicationProvider.getApplicationContext(), PkosDatabase::class.java, name).build()
         runBlocking { assertEquals("পুরোনো আইটেম", room.knowledgeDao().get("old-1")?.title) }

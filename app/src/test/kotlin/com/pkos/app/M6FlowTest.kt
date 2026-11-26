@@ -71,6 +71,7 @@ class M6FlowTest {
         waitFor(hasTestTag("search_no_results"))
         rule.onNodeWithTag("search_mode_semantic").performClick()
         waitFor(hasTestTag("search_reasons_$money"))
+        rule.onNodeWithTag("search_filters").performScrollToNode(hasTestTag("filter_pinned")) // more filters since P1; the row scrolls
         rule.onNodeWithTag("filter_pinned").performClick() // nothing pinned
         waitFor(hasTestTag("search_no_results"))
     }

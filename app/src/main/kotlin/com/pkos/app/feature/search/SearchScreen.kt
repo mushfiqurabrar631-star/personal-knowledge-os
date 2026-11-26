@@ -80,9 +80,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.launch
 
-data class SearchResults(val query: String, val items: List<KnowledgeItemEntity>, val reasons: Map<String, Set<MatchReason>> = emptyMap(), val filters: SearchFilters = SearchFilters())
+data class SearchResults(val query: String, val items: List<KnowledgeItemEntity>, val reasons: Map<String, Set<MatchReason>> = emptyMap(), val filters: SearchFilters = SearchFilters(), val paths: Map<String, String> = emptyMap())
 
-data class SearchOptions(val semantic: Boolean, val cloudMeaning: Boolean, val categories: List<CategoryEntity>)
+data class SearchOptions(val semantic: Boolean, val cloudMeaning: Boolean, val categories: List<CategoryEntity>, val topics: List<com.pkos.core.data.db.entity.TopicEntity> = emptyList())
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class SearchViewModel(private val container: AppContainer) : ViewModel() {
@@ -92,7 +92,7 @@ class SearchViewModel(private val container: AppContainer) : ViewModel() {
     val filters: StateFlow<SearchFilters> = _filters.asStateFlow()
 
     val options: StateFlow<SearchOptions> = combine(container.settings.settings, container.categories.all()) { s, c ->
-        SearchOptions(s.semanticSearchEnabled, container.cloudEmbedder() != null, c)
+        SearchOptions(s.semanticSearchEnabled, container.cloudEmbedder() != null, c, container.database.featureDao().topics().sortedBy { it.name })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchOptions(true, false, emptyList()))
 
     /**
@@ -103,7 +103,10 @@ class SearchViewModel(private val container: AppContainer) : ViewModel() {
     val results: StateFlow<SearchResults> = combine(_query.debounce(200), _filters, container.settings.settings.map { it.semanticSearchEnabled }.distinctUntilChanged(), container.knowledge.counts()) { q, f, sem, _ -> Triple(q, f, sem) }
         .mapLatest { (q, f, sem) ->
             val hits = container.search.search(q, f, semantic = sem, embedder = if (sem && q.isNotBlank()) container.cloudEmbedder() else null)
-            SearchResults(q.trim(), hits.map { it.item }, hits.associate { it.item.id to it.reasons }, f)
+            val cats = container.database.categoryDao().all().associate { it.id to it.name }
+            val topics = container.database.featureDao().topics().associate { it.id to it.name }
+            val paths = hits.associate { h -> h.item.id to listOfNotNull(h.item.categoryId?.let(cats::get), h.item.topicId?.let(topics::get), h.item.subtopicId?.let(topics::get)).joinToString(" › ") }
+            SearchResults(q.trim(), hits.map { it.item }, hits.associate { it.item.id to it.reasons }, f, paths.filterValues { it.isNotEmpty() })
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchResults("", emptyList()))
 
@@ -165,7 +168,7 @@ fun SearchScreen(
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = Spacing.screen).testTag("search_meaning_note"),
             )
-            FilterRow(filters, onFilters, options.categories)
+            FilterRow(filters, onFilters, options.categories, options.topics)
             when {
                 query.isBlank() && filters.isEmpty -> EmptyState(
                     Icons.AutoMirrored.Outlined.ManageSearch, stringResource(R.string.search_start_title),
@@ -194,7 +197,7 @@ fun SearchScreen(
                     }
                     items(results.items, key = { it.id }) { item ->
                         Column {
-                            KnowledgeRow(item, onClick = { openItem(item.id) })
+                            KnowledgeRow(item, onClick = { openItem(item.id) }, topicPath = results.paths[item.id])
                             val why = results.reasons[item.id].orEmpty()
                             if (why.isNotEmpty()) androidx.compose.foundation.layout.FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs), modifier = Modifier.padding(start = Spacing.s, top = Spacing.xs).testTag("search_reasons_${item.id}"),
@@ -219,7 +222,7 @@ private fun ReasonBadge(r: MatchReason) {
 }
 
 @Composable
-private fun FilterRow(f: SearchFilters, on: (SearchFilters) -> Unit, categories: List<CategoryEntity>) {
+private fun FilterRow(f: SearchFilters, on: (SearchFilters) -> Unit, categories: List<CategoryEntity>, topics: List<com.pkos.core.data.db.entity.TopicEntity>) {
     val day = 86_400_000L
     androidx.compose.foundation.lazy.LazyRow(
         contentPadding = PaddingValues(horizontal = Spacing.screen), horizontalArrangement = Arrangement.spacedBy(Spacing.s),
@@ -227,6 +230,8 @@ private fun FilterRow(f: SearchFilters, on: (SearchFilters) -> Unit, categories:
     ) {
         if (!f.isEmpty) item { androidx.compose.material3.AssistChip(onClick = { on(SearchFilters()) }, label = { Text(stringResource(R.string.search_filter_clear)) }, modifier = Modifier.testTag("filter_clear")) }
         item { DropdownChip(stringResource(R.string.search_filter_category), categories.firstOrNull { it.id == f.categoryId }, categories, { it.name }, { on(f.copy(categoryId = it?.id)) }, "filter_category") }
+        if (topics.isNotEmpty()) item { DropdownChip(stringResource(R.string.search_filter_topic), topics.firstOrNull { it.id == f.topicId }, topics, { it.name }, { on(f.copy(topicId = it?.id)) }, "filter_topic") }
+        item { DropdownChip(stringResource(R.string.search_filter_platform), f.platform, com.pkos.core.data.model.SourcePlatform.entries, { com.pkos.app.ui.components.platformLabel(it) }, { on(f.copy(platform = it)) }, "filter_platform") }
         item { DropdownChip(stringResource(R.string.search_filter_status), f.status, ItemStatus.entries, { itemStatusLabel(it) }, { on(f.copy(status = it)) }, "filter_status") }
         item { DropdownChip(stringResource(R.string.search_filter_type), f.type, ContentType.entries, { typeLabel(it) }, { on(f.copy(type = it)) }, "filter_type") }
         item { DropdownChip(stringResource(R.string.search_filter_priority), f.priority, ItemPriority.entries, { priorityLabel(it) }, { on(f.copy(priority = it)) }, "filter_priority") }
@@ -238,6 +243,7 @@ private fun FilterRow(f: SearchFilters, on: (SearchFilters) -> Unit, categories:
             }, { d -> val now = System.currentTimeMillis(); on(if (d == null) f.copy(from = null, to = null) else f.copy(from = now - d * day, to = now)) }, "filter_date")
         }
         item { FilterChip(selected = f.pinned == true, onClick = { on(f.copy(pinned = if (f.pinned == true) null else true)) }, label = { Text(stringResource(R.string.search_filter_pinned)) }, modifier = Modifier.testTag("filter_pinned")) }
+        item { FilterChip(selected = f.backedUp == true, onClick = { on(f.copy(backedUp = if (f.backedUp == true) null else true)) }, label = { Text(stringResource(R.string.search_filter_backed_up)) }, modifier = Modifier.testTag("filter_backed_up")) }
         item { FilterChip(selected = f.notionSynced == true, onClick = { on(f.copy(notionSynced = if (f.notionSynced == true) null else true)) }, label = { Text(stringResource(R.string.search_filter_notion)) }, modifier = Modifier.testTag("filter_notion")) }
     }
 }

@@ -17,6 +17,7 @@ import com.pkos.core.data.model.ProcessingState
 import com.pkos.core.data.repository.StarterTaxonomy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.Locale
@@ -85,15 +86,31 @@ class ProcessingEngine(
             contentTypeHint = fresh.contentType?.name?.lowercase(),
             allowedCategories = allowed.values.toList(),
         )
-        val local = LocalClassifier.classify(input, fresh.sourcePlatform, fresh.contentType)
+        val local0 = LocalClassifier.classify(input, fresh.sourcePlatform, fresh.contentType)
+        val local = local0.copy(keywords = LocalKeywords.pick(input.title + "\n" + input.text, local0.tags))
+        val origins0 = runCatching { JSONObject(fresh.fieldOrigins) }.getOrElse { JSONObject() }
+        // Sensitive data stays on the phone unless the owner explicitly allowed cloud for this item (spec 4.1/4.6/10).
+        val sensitive = if (origins0.optString("privacy") == FieldOrigin.USER.name) emptySet() else SensitiveData.find(input.title + "\n" + input.text)
+        if (sensitive.isNotEmpty() && fresh.privacyScope == PrivacyScope.NORMAL) {
+            origins0.put("privacy", FieldOrigin.SYSTEM.name)
+            db.knowledgeDao().update(fresh.copy(privacyScope = PrivacyScope.LOCAL_ONLY, fieldOrigins = origins0.toString()))
+            db.featureDao().deleteEmbeddings(fresh.id)
+        }
+        val keepLocal = sensitive.isNotEmpty() || fresh.privacyScope != PrivacyScope.NORMAL
 
         var chosen: AiResult = local
         var provider = LocalClassifier.PROVIDER
         var model = LocalClassifier.MODEL
         var fallbackReason: String? = null
-        if (cloud != null && fresh.privacyScope == PrivacyScope.NORMAL) {
-            when (val r = runCloud(fresh.id, cloud, input, allowed)) {
-                is CloudResult.Ok -> { chosen = r.result; provider = cloud.name; model = cloud.model }
+        var relatedIds = emptyList<String>()
+        if (sensitive.isNotEmpty()) fallbackReason = ReviewReason.SENSITIVE_LOCAL
+        if (cloud != null && !keepLocal) {
+            val refs = relatedCandidates(fresh)
+            when (val r = runCloud(fresh.id, cloud, input.copy(candidates = refs.map { (ref, item) -> ref to item.title }), allowed)) {
+                is CloudResult.Ok -> {
+                    chosen = r.result; provider = cloud.name; model = cloud.model
+                    relatedIds = r.result.relatedRefs.mapNotNull { ref -> refs.firstOrNull { it.first == ref }?.second?.id }.distinct()
+                }
                 is CloudResult.Transient -> {
                     val attempts = classify.attempts + 1
                     if (attempts < MAX_CLOUD_ATTEMPTS) {
@@ -108,7 +125,7 @@ class ProcessingEngine(
         db.aiRunDao().takeIf { provider == LocalClassifier.PROVIDER }?.insert(
             AiRunEntity(UUID.randomUUID().toString(), item.id, provider, model, PROMPT_VERSION, AiResultParser.toJson(local, categories), local.confidence, "OK", fallbackReason, input.text.length, clock()),
         )
-        val state = apply(fresh, chosen, provider, fallbackReason)
+        val state = apply(db.knowledgeDao().get(fresh.id) ?: fresh, chosen, provider, fallbackReason, relatedIds)
         // Spec 9 #7: proposals only (owner confirms); never fails the processing.
         runCatching { com.pkos.core.data.features.ActionService(db, clock).propose(item.id, chosen.actionItems) }
         finish(classify, JobState.SUCCEEDED, null)
@@ -149,7 +166,16 @@ class ProcessingEngine(
     }
 
     /** Applies the confidence policy (spec 4.5) without touching fields the owner set. */
-    private suspend fun apply(item: KnowledgeItemEntity, r: AiResult, provider: String, fallbackReason: String?): ProcessingState {
+    /** Up to 5 other normal-privacy items whose titles share words with this one; only their titles go to the cloud. */
+    private suspend fun relatedCandidates(item: KnowledgeItemEntity): List<Pair<String, KnowledgeItemEntity>> = runCatching {
+        val search = com.pkos.core.data.features.SearchService(db, clock)
+        search.refreshIndex()
+        search.search(item.title, semantic = false, limit = 8).map { it.item }
+            .filter { it.id != item.id && it.privacyScope == PrivacyScope.NORMAL }.take(5)
+            .mapIndexed { i, it -> "r${i + 1}" to it }
+    }.getOrDefault(emptyList())
+
+    private suspend fun apply(item: KnowledgeItemEntity, r: AiResult, provider: String, fallbackReason: String?, relatedIds: List<String> = emptyList()): ProcessingState {
         val origins = runCatching { JSONObject(item.fieldOrigins) }.getOrElse { JSONObject() }
         fun mine(field: String) = origins.optString(field) == FieldOrigin.USER.name
         val band = ConfidencePolicy.band(r.confidence)
@@ -173,6 +199,8 @@ class ProcessingEngine(
         if (!mine("content_type") && r.contentType != null) { updated = updated.copy(contentType = r.contentType); origins.put("content_type", aiTag) }
         if (!mine("purpose") && r.purpose.isNotEmpty()) { updated = updated.copy(purpose = r.purpose.joinToString(",")); origins.put("purpose", aiTag) }
         if (!mine("priority")) { updated = updated.copy(priority = r.priority); origins.put("priority", aiTag) }
+        if (!mine("keywords") && r.keywords.isNotEmpty()) { updated = updated.copy(keywords = JSONArray(r.keywords).toString()); origins.put("keywords", aiTag) }
+        if (!mine("entities") && r.entities.isNotEmpty()) { updated = updated.copy(entities = JSONArray(r.entities).toString()); origins.put("entities", aiTag) }
         // Only a system-made title may be improved; anything the owner typed stays.
         if (r.title != null && origins.optString("title") == FieldOrigin.SYSTEM.name && !low) { updated = updated.copy(title = r.title); origins.put("title", aiTag) }
         val topicCategory = updated.categoryId?.takeIf { it != StarterTaxonomy.UNSORTED }
@@ -192,6 +220,11 @@ class ProcessingEngine(
                 val normalized = name.lowercase(Locale.ROOT).trim()
                 db.tagDao().insertIgnore(TagEntity(UUID.nameUUIDFromBytes(normalized.toByteArray()).toString(), name, normalized))
                 db.tagDao().linkByName(final.id, normalized)
+            }
+            // AI-suggested relations (spec 4.4 related_item_ids): stored as AI links; owner links are never touched.
+            relatedIds.forEach { other ->
+                val (a, b) = if (final.id < other) final.id to other else other to final.id
+                db.featureDao().insertLink(com.pkos.core.data.db.entity.KnowledgeLinkEntity(UUID.randomUUID().toString(), a, b, "ai_related", null, FieldOrigin.AI, clock()))
             }
             val version = db.itemVersionDao().latestVersion(final.id) + 1
             db.itemVersionDao().insert(

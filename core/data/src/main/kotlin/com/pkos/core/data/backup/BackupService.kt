@@ -100,6 +100,7 @@ class BackupService(
                     return BackupRunResult.Failed(VERIFY_MISMATCH)
                 }
                 s = save(s.copy(status = BackupStatus.VERIFIED, verifiedAt = clock(), errorCode = null, uploadSession = null))
+                runCatching { dao.markBackedUp(s.createdAt) } // per-item state (spec 8.5); never affects the backup result
                 s.archivePath?.let { File(it).delete() }
                 runCatching { prune() } // retention problems never affect the verified result
                 BackupRunResult.Verified(s, quotaWarning)

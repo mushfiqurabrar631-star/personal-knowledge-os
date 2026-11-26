@@ -28,7 +28,7 @@ data class Edge(
 object EdgeReason {
     const val CATEGORY = "category"; const val TOPIC = "topic"; const val SUBTOPIC = "subtopic"; const val TAG = "tag"
     const val SHARED_TAGS = "shared_tags"; const val SAME_TOPIC = "same_topic"; const val SIMILAR_TEXT = "similar_text"
-    const val DUPLICATE = "duplicate"; const val USER_LINK = "user_link"
+    const val DUPLICATE = "duplicate"; const val USER_LINK = "user_link"; const val AI_RELATED = "ai_related"
 }
 
 /**
@@ -58,7 +58,11 @@ class GraphService(private val db: PkosDatabase, private val clock: () -> Long =
         val linked = mutableSetOf<String>()
         for (l in links) {
             val other = if (l.fromId == itemId) l.toId else l.fromId
-            live[other]?.let { out += Edge(NodeType.ITEM, it.id, it.title, EdgeReason.USER_LINK, 1.0, FieldOrigin.USER, l.id); linked += it.id }
+            live[other]?.let {
+                out += if (l.origin == FieldOrigin.USER) Edge(NodeType.ITEM, it.id, it.title, EdgeReason.USER_LINK, 1.0, FieldOrigin.USER, l.id)
+                else Edge(NodeType.ITEM, it.id, it.title, EdgeReason.AI_RELATED, 0.7, FieldOrigin.AI, null) // AI suggestion, dismissible
+                linked += it.id
+            }
         }
         // Computed item relations.
         val myShingles = TextSimilarity.shingles(text(item))

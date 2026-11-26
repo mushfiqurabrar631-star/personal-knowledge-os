@@ -21,6 +21,8 @@ data class AiInput(
     val platform: String?,
     val contentTypeHint: String?,
     val allowedCategories: List<String>,
+    /** Other saved items (normal privacy only) the model may point to as related: ref → title. */
+    val candidates: List<Pair<String, String>> = emptyList(),
 )
 
 sealed interface AiResponse {
@@ -75,4 +77,16 @@ object ReviewReason {
     const val CLOUD_QUOTA = "pkos:cloud_quota"
     const val CLOUD_AUTH = "pkos:cloud_auth"
     const val CLOUD_UNAVAILABLE = "pkos:cloud_unavailable"
+    /** Looked like a password, card number, OTP, key or ID number: kept on this phone (spec 4.1 step 13). */
+    const val SENSITIVE_LOCAL = "pkos:sensitive_local"
+}
+
+/** Prompt parts shared by every cloud provider so they all return the same schema (spec 4.4). */
+object PromptRules {
+    const val ENRICH = "keywords: up to 10 search words (not repeating tags). entities: up to 10 names of people, organisations, places, products or tools that appear in the text — never guess. " +
+        "action_items: short tasks or ideas that the text itself states, as strings; never add a date. related_item_ids: only refs from CANDIDATES that are clearly about the same subject, else []."
+
+    fun candidates(input: AiInput): String? = input.candidates.takeIf { it.isNotEmpty() }?.let { c ->
+        "\n--- CANDIDATES (ref: title) ---\n" + c.joinToString("\n") { (ref, title) -> "$ref: ${title.take(120)}" }
+    }
 }

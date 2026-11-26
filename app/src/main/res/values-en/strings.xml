@@ -618,4 +618,24 @@
     <string name="export_password">Password (at least 8 characters)</string>
     <string name="export_password_again">Password again</string>
     <string name="export_password_mismatch">Passwords don\'t match</string>
+    <string name="platform_facebook">Facebook</string>
+    <string name="platform_youtube">YouTube</string>
+    <string name="platform_instagram">Instagram</string>
+    <string name="platform_chrome">Chrome</string>
+    <string name="platform_web">Web</string>
+    <string name="platform_whatsapp">WhatsApp</string>
+    <string name="platform_messenger">Messenger</string>
+    <string name="platform_telegram">Telegram</string>
+    <string name="platform_gallery">Gallery</string>
+    <string name="platform_files">Files</string>
+    <string name="platform_clipboard">Clipboard</string>
+    <string name="platform_manual">Typed by you</string>
+    <string name="platform_other">Other</string>
+    <string name="search_filter_topic">Topic</string>
+    <string name="search_filter_platform">Source</string>
+    <string name="search_filter_backed_up">Backed up</string>
+    <string name="reason_sensitive_local">Looks like it contains a password, card number, OTP, key or ID number — kept on this phone and not sent to the cloud.</string>
+    <string name="item_keywords">Keywords</string>
+    <string name="item_entities">Names mentioned</string>
+    <string name="graph_reason_ai_related">Related (AI)</string>
 </resources>

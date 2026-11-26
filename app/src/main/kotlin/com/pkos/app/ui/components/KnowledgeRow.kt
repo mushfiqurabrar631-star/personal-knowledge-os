@@ -28,7 +28,10 @@ import com.pkos.core.data.db.entity.KnowledgeItemEntity
 
 /** One knowledge item in a list: type icon, title, snippet/source, and its plain-language status. */
 @Composable
-fun KnowledgeRow(item: KnowledgeItemEntity, onClick: () -> Unit, modifier: Modifier = Modifier) {
+/**
+ * Result/list card (spec 9.1): title, short summary, topic path (when known), source badge, date and sync status.
+ */
+fun KnowledgeRow(item: KnowledgeItemEntity, onClick: () -> Unit, modifier: Modifier = Modifier, topicPath: String? = null) {
     val status = ItemStatusUi.of(item.processingState, item.syncState)
     val secondary = item.summary?.takeIf { it.isNotBlank() }
         ?: item.rawText?.takeIf { it.isNotBlank() }
@@ -65,6 +68,8 @@ fun KnowledgeRow(item: KnowledgeItemEntity, onClick: () -> Unit, modifier: Modif
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                val meta = listOfNotNull(topicPath, item.sourcePlatform?.let { platformLabel(it) }, Formatters.date(item.createdAt)).joinToString(" · ")
+                Text(meta, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 StatusPill(stringResource(status.label), status.icon, status.tone)
             }
         }

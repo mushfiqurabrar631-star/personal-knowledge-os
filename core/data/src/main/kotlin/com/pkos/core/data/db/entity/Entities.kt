@@ -61,6 +61,9 @@ data class KnowledgeItemEntity(
     @ColumnInfo(name = "content_hash") val contentHash: String? = null,
     /** Set when an earlier item looks identical. Both are kept (spec 11: never discard a capture). */
     @ColumnInfo(name = "duplicate_of_id") val duplicateOfId: String? = null,
+    // v7 (spec 4.4 enrichment): JSON string arrays. AI never overwrites them once the owner edits (field origin USER).
+    val keywords: String? = null,
+    val entities: String? = null,
 )
 
 @Entity(tableName = "categories", indices = [Index("parent_id"), Index(value = ["name"])])

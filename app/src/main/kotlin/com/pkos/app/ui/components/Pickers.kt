@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import com.pkos.app.R
 import com.pkos.core.data.model.ContentType
 import com.pkos.core.data.model.ItemPriority
+import com.pkos.core.data.model.SourcePlatform
 
 /** Chip that opens a small menu; "Any" clears the choice. */
 @Composable
@@ -50,5 +51,18 @@ fun typeLabel(t: ContentType): String = stringResource(
         ContentType.TUTORIAL -> R.string.type_tutorial; ContentType.IDEA -> R.string.type_idea; ContentType.NOTE -> R.string.type_note
         ContentType.DOCUMENT -> R.string.type_document; ContentType.SCREENSHOT -> R.string.type_screenshot; ContentType.IMAGE -> R.string.type_image
         ContentType.MESSAGE -> R.string.type_message; ContentType.TOOL -> R.string.type_tool; ContentType.OTHER -> R.string.type_other
+    },
+)
+
+@Composable
+fun platformLabel(p: SourcePlatform): String = stringResource(
+    when (p) {
+        SourcePlatform.FACEBOOK -> R.string.platform_facebook; SourcePlatform.YOUTUBE -> R.string.platform_youtube
+        SourcePlatform.INSTAGRAM -> R.string.platform_instagram; SourcePlatform.CHROME -> R.string.platform_chrome
+        SourcePlatform.WEB -> R.string.platform_web; SourcePlatform.WHATSAPP -> R.string.platform_whatsapp
+        SourcePlatform.MESSENGER -> R.string.platform_messenger; SourcePlatform.TELEGRAM -> R.string.platform_telegram
+        SourcePlatform.GALLERY -> R.string.platform_gallery; SourcePlatform.FILES -> R.string.platform_files
+        SourcePlatform.CLIPBOARD -> R.string.platform_clipboard; SourcePlatform.MANUAL -> R.string.platform_manual
+        SourcePlatform.OTHER -> R.string.platform_other
     },
 )

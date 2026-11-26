@@ -37,7 +37,7 @@ import com.pkos.core.data.db.entity.TopicEntity
  * explicit migrations when their features are built.
  */
 /** Current Room schema version; restores of newer backups are refused. */
-const val DB_VERSION = 6
+const val DB_VERSION = 7
 
 @Database(
     entities = [
@@ -54,7 +54,7 @@ const val DB_VERSION = 6
     ],
     version = DB_VERSION,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7)],
 )
 abstract class PkosDatabase : RoomDatabase() {
     abstract fun knowledgeDao(): KnowledgeDao
@@ -78,9 +78,23 @@ abstract class PkosDatabase : RoomDatabase() {
         fun create(context: Context, name: String = FILE_NAME): PkosDatabase =
             Room.databaseBuilder(context.applicationContext, PkosDatabase::class.java, name)
                 // No destructive fallback: losing data is a release blocker (spec 13.3).
+                .addCallback(Triggers)
                 .build()
 
         fun inMemory(context: Context): PkosDatabase =
-            Room.inMemoryDatabaseBuilder(context.applicationContext, PkosDatabase::class.java).build()
+            Room.inMemoryDatabaseBuilder(context.applicationContext, PkosDatabase::class.java).addCallback(Triggers).build()
+
+        /**
+         * Spec 8.5 sync state: an edit after a verified backup means the new version is not backed up any more.
+         * BACKED_UP → LOCAL_ONLY, SYNCED → NOTION_SYNCED (Notion re-sync sets its own queued state). Created on every
+         * open with IF NOT EXISTS, so no schema version change is needed and restored databases get it too.
+         */
+        const val STALE_BACKUP_TRIGGER = """CREATE TRIGGER IF NOT EXISTS pkos_backup_stale AFTER UPDATE OF updated_at ON knowledge_items
+            WHEN NEW.updated_at > OLD.updated_at AND NEW.sync_state IN ('BACKED_UP','SYNCED')
+            BEGIN UPDATE knowledge_items SET sync_state = CASE NEW.sync_state WHEN 'BACKED_UP' THEN 'LOCAL_ONLY' ELSE 'NOTION_SYNCED' END WHERE id = NEW.id; END"""
+
+        private object Triggers : RoomDatabase.Callback() {
+            override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) { db.execSQL(STALE_BACKUP_TRIGGER) }
+        }
     }
 }
