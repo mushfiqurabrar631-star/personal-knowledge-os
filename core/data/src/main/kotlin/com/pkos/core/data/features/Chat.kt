@@ -19,7 +19,11 @@ data class ChatAnswer(
 )
 
 /** Plain-text generation (cloud). */
-fun interface TextGenerator { suspend fun generate(prompt: String): String? }
+fun interface TextGenerator {
+    suspend fun generate(prompt: String): String?
+    /** Shown in the cloud activity list (spec 10.1). */
+    val provider: String get() = "gemini"
+}
 
 /**
  * Ask your library (spec 9 #2, 9.2): retrieval over the owner's own items, answer only from them, every claim cited
@@ -40,7 +44,7 @@ class KnowledgeChat(private val search: SearchService) {
                 val sent = prompt(question, sources)
                 val reply = runCatching { generator.generate(sent) }.getOrNull()
                 // Spec 10.1 "view recent cloud processing activity": one row per saved item whose text went to the cloud.
-                sources.forEach { src -> CloudAudit.record(search.db, src.itemId, CloudAudit.ASK, "gemini", if (reply == null) "ERROR" else "OK", src.snippet.length, System.currentTimeMillis()) }
+                sources.forEach { src -> CloudAudit.record(search.db, src.itemId, CloudAudit.ASK, generator.provider, if (reply == null) "ERROR" else "OK", src.snippet.length, System.currentTimeMillis()) }
                 if (reply != null && reply.contains("NOT_IN_LIBRARY")) return ChatAnswer(null, emptyList(), noSources = true, byCloud = true, localOnlyWithheld = withheld)
                 if (reply != null) {
                     val cited = Regex("\\[(\\d+)]").findAll(reply).map { it.groupValues[1].toInt() }.toSet()

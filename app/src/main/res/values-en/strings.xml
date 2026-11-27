@@ -644,4 +644,12 @@
     <string name="notion_large_files">Large files as a Google Drive link</string>
     <string name="notion_large_files_body">Off by default. Files over Notion\'s free limit (5 MB) are stored unencrypted in your Drive folder \"Personal Knowledge OS Files\" and the Notion page gets a link. Sharing is never changed: the link opens only for your Google account. Local-only items never go.</string>
     <string name="notion_large_files_needs_drive">Connect Google Drive in Backup settings first to turn this on.</string>
+    <string name="ai_provider_gemini">Gemini (Google)</string>
+    <string name="ai_provider_compat">OpenAI-compatible</string>
+    <string name="ai_compat_cost_warning">Warning: the service you choose may charge you. PKOS never turns on a paid service itself; cost and limits follow your account\'s rules.</string>
+    <string name="ai_compat_base">Endpoint address</string>
+    <string name="ai_compat_base_hint">For example https://example.com/v1 (/chat/completions is added)</string>
+    <string name="ai_compat_https_only">Only https:// addresses work</string>
+    <string name="ai_compat_key">API key (optional)</string>
+    <string name="ai_compat_note">The key is encrypted with Android Keystore and stays on this phone. The same minimal data as Gemini is sent; local-only items never go. Meaning-search embeddings use Gemini only; offline search is used here.</string>
 </resources>

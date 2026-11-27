@@ -47,7 +47,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.pkos.app.R
 import com.pkos.app.di.AppContainer
+import com.pkos.app.processing.COMPAT_KEY
 import com.pkos.app.processing.GEMINI_KEY
+import androidx.compose.material3.FilterChip
+import com.pkos.core.data.processing.OpenAiCompat
 import com.pkos.app.ui.components.NoticeCard
 import com.pkos.app.ui.components.StatusPill
 import com.pkos.app.ui.pkosViewModel
@@ -64,6 +67,13 @@ class AiSettingsViewModel(private val container: AppContainer) : ViewModel() {
     val settings: StateFlow<AppSettings> = container.settings.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
     private val _keySaved = MutableStateFlow(container.secrets.get(GEMINI_KEY) != null)
     val keySaved: StateFlow<Boolean> = _keySaved
+    private val _compatKeySaved = MutableStateFlow(container.secrets.get(COMPAT_KEY) != null)
+    val compatKeySaved: StateFlow<Boolean> = _compatKeySaved
+
+    fun setProvider(p: String) { viewModelScope.launch { val s = settings.value; container.settings.setAiProvider(p, s.compatBaseUrl, s.compatModel) } }
+    fun setCompat(baseUrl: String, model: String) { viewModelScope.launch { container.settings.setAiProvider(OpenAiCompat.NAME, baseUrl, model) } }
+    fun saveCompatKey(key: String) { val k = key.trim(); if (k.isEmpty()) return; container.secrets.put(COMPAT_KEY, k); _compatKeySaved.value = true }
+    fun removeCompatKey() { container.secrets.remove(COMPAT_KEY); _compatKeySaved.value = false }
 
     fun setCloud(on: Boolean) { viewModelScope.launch { container.settings.setCloudAiEnabled(on) } }
     fun setModel(model: String) { viewModelScope.launch { container.settings.setAiModel(model) } }
@@ -80,7 +90,11 @@ fun AiSettingsRoute(onBack: () -> Unit) {
     val vm = pkosViewModel { AiSettingsViewModel(it) }
     val settings by vm.settings.collectAsStateWithLifecycle()
     val keySaved by vm.keySaved.collectAsStateWithLifecycle()
-    AiSettingsScreen(settings, keySaved, onBack, vm::setCloud, vm::saveKey, vm::removeKey, vm::setModel)
+    val compatKey by vm.compatKeySaved.collectAsStateWithLifecycle()
+    AiSettingsScreen(
+        settings, keySaved, onBack, vm::setCloud, vm::saveKey, vm::removeKey, vm::setModel,
+        compatKeySaved = compatKey, onProvider = vm::setProvider, onCompat = vm::setCompat, onSaveCompatKey = vm::saveCompatKey, onRemoveCompatKey = vm::removeCompatKey,
+    )
 }
 
 /** Owner-controlled cloud AI (R-04, R-09): off by default, own free key, Keystore-encrypted, clear data rules. */
@@ -94,7 +108,13 @@ fun AiSettingsScreen(
     onSaveKey: (String) -> Unit,
     onRemoveKey: () -> Unit,
     onModel: (String) -> Unit,
+    compatKeySaved: Boolean = false,
+    onProvider: (String) -> Unit = {},
+    onCompat: (String, String) -> Unit = { _, _ -> },
+    onSaveCompatKey: (String) -> Unit = {},
+    onRemoveCompatKey: () -> Unit = {},
 ) {
+    val compat = settings.aiProvider == OpenAiCompat.NAME
     var key by rememberSaveable { mutableStateOf("") }
     var model by rememberSaveable(settings.aiModel) { mutableStateOf(settings.aiModel) }
     Scaffold(
@@ -124,6 +144,13 @@ fun AiSettingsScreen(
                     Switch(checked = settings.cloudAiEnabled, onCheckedChange = null)
                 }
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.testTag("ai_provider")) {
+                FilterChip(selected = !compat, onClick = { onProvider("gemini") }, label = { Text(stringResource(R.string.ai_provider_gemini)) }, modifier = Modifier.testTag("ai_provider_gemini"))
+                FilterChip(selected = compat, onClick = { onProvider(OpenAiCompat.NAME) }, label = { Text(stringResource(R.string.ai_provider_compat)) }, modifier = Modifier.testTag("ai_provider_compat"))
+            }
+            if (compat) {
+                CompatCard(settings, compatKeySaved, onCompat, onSaveCompatKey, onRemoveCompatKey)
+            } else {
             if (settings.cloudAiEnabled && !keySaved) {
                 Text(stringResource(R.string.ai_cloud_on_no_key), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("ai_no_key_warning"))
             }
@@ -156,7 +183,54 @@ fun AiSettingsScreen(
                     Text(stringResource(R.string.ai_free_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            }
             NoticeCard(Icons.Outlined.Shield, stringResource(R.string.settings_section_privacy), stringResource(R.string.ai_privacy_explainer))
+        }
+    }
+}
+
+/** Owner's OpenAI-compatible endpoint (spec 4.6): https address, model, optional key; a clear cost warning. */
+@Composable
+private fun CompatCard(
+    settings: AppSettings,
+    keySaved: Boolean,
+    onCompat: (String, String) -> Unit,
+    onSaveKey: (String) -> Unit,
+    onRemoveKey: () -> Unit,
+) {
+    var base by rememberSaveable(settings.compatBaseUrl) { mutableStateOf(settings.compatBaseUrl) }
+    var model by rememberSaveable(settings.compatModel) { mutableStateOf(settings.compatModel) }
+    var key by rememberSaveable { mutableStateOf("") }
+    val badBase = base.isNotBlank() && OpenAiCompat.normalizeBase(base) == null
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+            Text(stringResource(R.string.ai_compat_cost_warning), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("ai_compat_warning"))
+            OutlinedTextField(
+                value = base, onValueChange = { base = it; onCompat(it, model) }, singleLine = true, isError = badBase,
+                label = { Text(stringResource(R.string.ai_compat_base)) },
+                supportingText = { Text(stringResource(if (badBase) R.string.ai_compat_https_only else R.string.ai_compat_base_hint)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+                modifier = Modifier.fillMaxWidth().testTag("ai_compat_base"),
+            )
+            OutlinedTextField(
+                value = model, onValueChange = { model = it; onCompat(base, it) }, singleLine = true,
+                label = { Text(stringResource(R.string.ai_model_label)) },
+                modifier = Modifier.fillMaxWidth().testTag("ai_compat_model"),
+            )
+            if (keySaved) {
+                StatusPill(stringResource(R.string.ai_key_saved), Icons.Outlined.Shield, ToneKind.SUCCESS)
+                OutlinedButton(onClick = onRemoveKey, modifier = Modifier.testTag("ai_compat_key_remove")) { Text(stringResource(R.string.ai_key_remove)) }
+            } else {
+                OutlinedTextField(
+                    value = key, onValueChange = { key = it }, singleLine = true,
+                    label = { Text(stringResource(R.string.ai_compat_key)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                    modifier = Modifier.fillMaxWidth().testTag("ai_compat_key_input"),
+                )
+                Button(onClick = { onSaveKey(key); key = "" }, enabled = key.isNotBlank(), modifier = Modifier.testTag("ai_compat_key_save")) { Text(stringResource(R.string.ai_key_save)) }
+            }
+            Text(stringResource(R.string.ai_compat_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

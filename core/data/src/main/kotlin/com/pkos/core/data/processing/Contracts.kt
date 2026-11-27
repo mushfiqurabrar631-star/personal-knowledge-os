@@ -85,6 +85,25 @@ object ReviewReason {
 
 /** Prompt parts shared by every cloud provider so they all return the same schema (spec 4.4). */
 object PromptRules {
+    fun classifyPrompt(input: AiInput, repairHint: String?): String = buildString {
+        appendLine("You organize one saved item for a personal knowledge app. The owner writes Bengali and English.")
+        appendLine("Return ONLY a JSON object with exactly these keys: title, summary, main_category, topic, subtopic, content_type, purpose, tags, keywords, entities, priority, status, related_item_ids, action_items, confidence, needs_review, review_reason.")
+        appendLine("Rules: main_category must be one of: ${input.allowedCategories.joinToString(" | ")} — or null if none fits; never invent a category.")
+        appendLine("content_type: article|video|website|tutorial|idea|note|document|image|message|tool|other. purpose: subset of learn, reference, build, decide, buy, revisit, inspiration (empty if unclear).")
+        appendLine("priority: low|normal|high|critical (default normal). status: inbox unless obvious. confidence: 0..1, be honest; below 0.6 set needs_review=true with a short review_reason.")
+        appendLine("Do not infer health, religion, politics or other personal attributes. Summary: 1–2 sentences in the item's language. At most 6 tags.")
+        appendLine(PromptRules.ENRICH)
+        if (repairHint != null) appendLine("Your previous answer was rejected: $repairHint. Return valid JSON only.")
+        appendLine("--- ITEM ---")
+        appendLine("Title: ${input.title}")
+        input.url?.let { appendLine("URL: $it") }
+        input.platform?.let { appendLine("Platform: $it") }
+        input.contentTypeHint?.let { appendLine("Detected type: $it") }
+        appendLine("Text:")
+        appendLine(input.text.take(6_000))
+        PromptRules.candidates(input)?.let { append(it) }
+    }
+
     const val ENRICH = "keywords: up to 10 search words (not repeating tags). entities: up to 10 names of people, organisations, places, products or tools that appear in the text — never guess. " +
         "action_items: short tasks or ideas that the text itself states, as strings; never add a date. related_item_ids: only refs from CANDIDATES that are clearly about the same subject, else []."
 

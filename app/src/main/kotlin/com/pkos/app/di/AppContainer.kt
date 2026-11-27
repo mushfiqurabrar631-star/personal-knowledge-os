@@ -80,7 +80,7 @@ class AppContainer(
     val storage = StorageRepository(context)
     @Volatile private var notionEnabledCache = false
     val integrations = IntegrationStatusProvider(
-        aiKeySaved = { secrets.get(com.pkos.app.processing.GEMINI_KEY) != null },
+        aiKeySaved = { cloudConfigured(kotlinx.coroutines.runBlocking { settings.settings.first() }) },
         notionReady = { notionEnabledCache && secrets.get(com.pkos.app.notion.NOTION_TOKEN) != null },
         driveReady = { kotlinx.coroutines.runBlocking { settings.settings.first().driveConnected } },
     )
@@ -159,10 +159,24 @@ class AppContainer(
     /** Cloud AI only when the owner turned it on AND saved a key; otherwise everything stays on the phone (R-09). */
     suspend fun cloudProvider(): com.pkos.core.data.processing.AiProvider? {
         val s = settings.settings.first()
-        if (!s.cloudAiEnabled) return null
-        val key = secrets.get(com.pkos.app.processing.GEMINI_KEY) ?: return null
-        return com.pkos.core.data.processing.GeminiProvider(key, s.aiModel, http)
+        if (!s.cloudAiEnabled || !cloudConfigured(s)) return null
+        return if (s.aiProvider == com.pkos.core.data.processing.OpenAiCompat.NAME) {
+            com.pkos.core.data.processing.OpenAiCompatProvider(secrets.get(com.pkos.app.processing.COMPAT_KEY), s.compatBaseUrl, s.compatModel, http)
+        } else {
+            com.pkos.core.data.processing.GeminiProvider(secrets.get(com.pkos.app.processing.GEMINI_KEY)!!, s.aiModel, http)
+        }
     }
+
+    /**
+     * Whether the chosen provider can be used: Gemini needs its key; a compatible endpoint needs an https address and a
+     * model (its key is optional). This alone never turns cloud AI on.
+     */
+    fun cloudConfigured(s: com.pkos.core.data.settings.AppSettings): Boolean =
+        if (s.aiProvider == com.pkos.core.data.processing.OpenAiCompat.NAME) {
+            com.pkos.core.data.processing.OpenAiCompat.normalizeBase(s.compatBaseUrl) != null && s.compatModel.isNotBlank()
+        } else {
+            secrets.get(com.pkos.app.processing.GEMINI_KEY) != null
+        }
 
     // ---- M6: search & knowledge tools (all local; cloud helpers only with the owner's switch + key) ----
     val search = com.pkos.core.data.features.SearchService(database)
@@ -192,7 +206,7 @@ class AppContainer(
     suspend fun deleteAllData(): com.pkos.core.data.features.WipeResult {
         runCatching { androidx.work.WorkManager.getInstance(context).cancelAllWork() }
         val r = privacy.deleteAllData()
-        listOf(com.pkos.app.notion.NOTION_TOKEN, com.pkos.app.processing.GEMINI_KEY, BACKUP_KEK).forEach { secrets.remove(it) }
+        listOf(com.pkos.app.notion.NOTION_TOKEN, com.pkos.app.processing.GEMINI_KEY, com.pkos.app.processing.COMPAT_KEY, BACKUP_KEK).forEach { secrets.remove(it) }
         runCatching { privacy.clearCache(cacheDirs()) }
         settings.clearAll()
         return r
@@ -201,7 +215,10 @@ class AppContainer(
     /** Gemini answer writer for Ask — only with cloud AI on and a key saved. Never a paid service. */
     suspend fun cloudGenerator(): com.pkos.core.data.features.TextGenerator? {
         val s = settings.settings.first()
-        if (!s.cloudAiEnabled) return null
+        if (!s.cloudAiEnabled || !cloudConfigured(s)) return null
+        if (s.aiProvider == com.pkos.core.data.processing.OpenAiCompat.NAME) {
+            return com.pkos.core.data.processing.OpenAiCompatTextGenerator(secrets.get(com.pkos.app.processing.COMPAT_KEY), s.compatBaseUrl, s.compatModel, http)
+        }
         val key = secrets.get(com.pkos.app.processing.GEMINI_KEY) ?: return null
         return com.pkos.core.data.features.GeminiTextGenerator(key, s.aiModel, http)
     }
@@ -210,6 +227,8 @@ class AppContainer(
     suspend fun cloudEmbedder(): com.pkos.core.data.features.EmbeddingProvider? {
         val s = settings.settings.first()
         if (!s.cloudAiEnabled || !s.semanticSearchEnabled) return null
+        // Meaning-search embeddings come from Gemini only; with a compatible endpoint the offline meaning layer is used.
+        if (s.aiProvider == com.pkos.core.data.processing.OpenAiCompat.NAME) return null
         val key = secrets.get(com.pkos.app.processing.GEMINI_KEY) ?: return null
         return com.pkos.core.data.features.GeminiEmbeddingProvider(key, http = http)
     }

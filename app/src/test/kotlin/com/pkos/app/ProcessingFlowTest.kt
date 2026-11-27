@@ -1,6 +1,8 @@
 package com.pkos.app
 
 import android.content.Context
+import kotlinx.coroutines.flow.first
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -113,5 +115,38 @@ class ProcessingFlowTest {
         rule.onNodeWithTag("ai_key_remove").performClick()
         waitFor(hasTestTag("ai_key_input"))
         assertNull(c.secrets.get(GEMINI_KEY))
+    }
+
+    @Test fun compatibleProviderNeedsHttpsAndModelAndStaysOffUntilCloudIsOn() {
+        val settings = InMemorySettings(AppSettings(onboardingCompleted = true))
+        val c = testContainer(settings)
+        rule.setContent { TestApp(c) }
+        waitFor(hasTestTag("home_search"))
+        rule.onNodeWithTag("tab_settings").performClick(); waitFor(hasTestTag("settings_list"))
+        rule.onNodeWithTag("settings_list").performScrollToNode(hasText(ctx.getString(R.string.ai_settings_title)))
+        rule.onAllNodes(hasText(ctx.getString(R.string.ai_settings_title)), useUnmergedTree = true)[0].performClick()
+        waitFor(hasTestTag("ai_settings"))
+        rule.onNodeWithTag("ai_provider_compat").performClick()
+        waitFor(hasTestTag("ai_compat_warning"))
+        rule.onNodeWithTag("ai_compat_base").performScrollTo().performTextInput("http://plain.example.com/v1")
+        rule.onNodeWithTag("ai_compat_model").performScrollTo().performTextInput("small-model")
+        rule.waitUntil(5_000) { runBlocking { settings.settings.first().compatModel == "small-model" } }
+        assertEquals(false, c.cloudConfigured(runBlocking { settings.settings.first() })) // http refused
+        rule.onNodeWithTag("ai_compat_base").performTextClearance()
+        rule.onNodeWithTag("ai_compat_base").performTextInput("https://llm.example.com/v1")
+        rule.waitUntil(5_000) { runBlocking { settings.settings.first().compatBaseUrl == "https://llm.example.com/v1" } }
+        assertNull(runBlocking { c.cloudProvider() }) // configured, but cloud AI is still off by default
+        runBlocking { settings.setCloudAiEnabled(true) }
+        assertEquals("openai_compat", runBlocking { c.cloudProvider() }!!.name)
+        assertNull(runBlocking { c.cloudEmbedder() })
+        rule.onNodeWithTag("ai_compat_key_input").performScrollTo().performTextInput("sk-own")
+        rule.onNodeWithTag("ai_compat_key_save").performClick()
+        waitFor(hasTestTag("ai_compat_key_remove"))
+        assertEquals("sk-own", c.secrets.get(com.pkos.app.processing.COMPAT_KEY))
+        assertNull(c.secrets.get(GEMINI_KEY))
+        // Switching back to Gemini without its key means no cloud at all.
+        rule.onNodeWithTag("ai_provider_gemini").performClick()
+        rule.waitUntil(5_000) { runBlocking { settings.settings.first().aiProvider == "gemini" } }
+        assertNull(runBlocking { c.cloudProvider() })
     }
 }

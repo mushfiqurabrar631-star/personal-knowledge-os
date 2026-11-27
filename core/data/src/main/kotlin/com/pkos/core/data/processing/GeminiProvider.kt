@@ -50,24 +50,7 @@ class GeminiProvider(
     }.getOrNull()
 
     fun requestBody(input: AiInput, repairHint: String?): String {
-        val prompt = buildString {
-            appendLine("You organize one saved item for a personal knowledge app. The owner writes Bengali and English.")
-            appendLine("Return ONLY a JSON object with exactly these keys: title, summary, main_category, topic, subtopic, content_type, purpose, tags, keywords, entities, priority, status, related_item_ids, action_items, confidence, needs_review, review_reason.")
-            appendLine("Rules: main_category must be one of: ${input.allowedCategories.joinToString(" | ")} — or null if none fits; never invent a category.")
-            appendLine("content_type: article|video|website|tutorial|idea|note|document|image|message|tool|other. purpose: subset of learn, reference, build, decide, buy, revisit, inspiration (empty if unclear).")
-            appendLine("priority: low|normal|high|critical (default normal). status: inbox unless obvious. confidence: 0..1, be honest; below 0.6 set needs_review=true with a short review_reason.")
-            appendLine("Do not infer health, religion, politics or other personal attributes. Summary: 1–2 sentences in the item's language. At most 6 tags.")
-            appendLine(PromptRules.ENRICH)
-            if (repairHint != null) appendLine("Your previous answer was rejected: $repairHint. Return valid JSON only.")
-            appendLine("--- ITEM ---")
-            appendLine("Title: ${input.title}")
-            input.url?.let { appendLine("URL: $it") }
-            input.platform?.let { appendLine("Platform: $it") }
-            input.contentTypeHint?.let { appendLine("Detected type: $it") }
-            appendLine("Text:")
-            appendLine(input.text.take(6_000))
-            PromptRules.candidates(input)?.let { append(it) }
-        }
+        val prompt = PromptRules.classifyPrompt(input, repairHint)
         return JSONObject().apply {
             put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
             put("generationConfig", JSONObject().put("responseMimeType", "application/json").put("temperature", 0.2))

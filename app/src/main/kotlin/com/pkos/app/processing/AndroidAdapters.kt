@@ -153,3 +153,5 @@ class InMemorySecretStore : SecretStore {
 }
 
 const val GEMINI_KEY = "gemini_api_key"
+/** Owner's key for their OpenAI-compatible endpoint (optional for endpoints that need none). */
+const val COMPAT_KEY = "compat_api_key"

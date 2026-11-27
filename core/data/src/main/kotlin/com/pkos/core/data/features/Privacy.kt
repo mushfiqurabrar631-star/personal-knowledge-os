@@ -12,8 +12,8 @@ import java.util.UUID
 object CloudAudit {
     const val ASK = "ask-v1"
     const val EMBED = "embed-v1"
-    suspend fun record(db: PkosDatabase, itemId: String, kind: String, model: String, outcome: String, chars: Int, at: Long) {
-        runCatching { db.aiRunDao().insert(AiRunEntity(UUID.randomUUID().toString(), itemId, "gemini", model, kind, null, null, outcome, null, chars, at)) }
+    suspend fun record(db: PkosDatabase, itemId: String, kind: String, model: String, outcome: String, chars: Int, at: Long, provider: String = if (model.startsWith(com.pkos.core.data.processing.OpenAiCompat.NAME)) com.pkos.core.data.processing.OpenAiCompat.NAME else "gemini") {
+        runCatching { db.aiRunDao().insert(AiRunEntity(UUID.randomUUID().toString(), itemId, provider, model, kind, null, null, outcome, null, chars, at)) }
     }
 }
 

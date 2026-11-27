@@ -663,4 +663,12 @@
     <string name="notion_large_files">বড় ফাইল Google Drive লিংক হিসেবে</string>
     <string name="notion_large_files_body">ডিফল্টভাবে বন্ধ। Notion-এর ফ্রি সীমা (৫ MB) ছাড়ানো ফাইল আপনার Drive-এর “Personal Knowledge OS Files” ফোল্ডারে এনক্রিপশন ছাড়া রাখা হয় এবং Notion পেজে তার লিংক যায়। শেয়ারিং বদলানো হয় না—লিংক শুধু আপনার Google অ্যাকাউন্টে খোলে। “শুধু ফোনে” আইটেম কখনো যায় না।</string>
     <string name="notion_large_files_needs_drive">এটি চালু করতে আগে ব্যাকআপ সেটিংসে Google Drive যুক্ত করুন।</string>
+    <string name="ai_provider_gemini">Gemini (Google)</string>
+    <string name="ai_provider_compat">OpenAI-সামঞ্জস্যপূর্ণ</string>
+    <string name="ai_compat_cost_warning">সতর্কতা: আপনার বেছে নেওয়া সার্ভিস টাকা কাটতে পারে। PKOS নিজে কোনো পেইড সার্ভিস চালু করে না—খরচ ও সীমা আপনার অ্যাকাউন্টের নিয়মে চলে।</string>
+    <string name="ai_compat_base">এন্ডপয়েন্টের ঠিকানা</string>
+    <string name="ai_compat_base_hint">যেমন https://example.com/v1 (শেষে /chat/completions যোগ হয়)</string>
+    <string name="ai_compat_https_only">শুধু https:// ঠিকানা চলবে</string>
+    <string name="ai_compat_key">API কী (ঐচ্ছিক)</string>
+    <string name="ai_compat_note">কী Android Keystore-এ এনক্রিপ্ট হয়ে শুধু এই ফোনে থাকে। Gemini-এর মতোই কম তথ্য যায়; “শুধু ফোনে” আইটেম কখনো যায় না। অর্থভিত্তিক সার্চের এমবেডিং শুধু Gemini দিয়ে হয়—এখানে অফলাইন সার্চ চলবে।</string>
 </resources>

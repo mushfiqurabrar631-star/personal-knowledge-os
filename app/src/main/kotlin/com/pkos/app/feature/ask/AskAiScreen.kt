@@ -71,7 +71,7 @@ data class ChatTurn(val question: String, val answer: ChatAnswer?)
 class AskViewModel(private val c: AppContainer) : ViewModel() {
     private val _turns = MutableStateFlow<List<ChatTurn>>(emptyList())
     val turns: StateFlow<List<ChatTurn>> = _turns.asStateFlow()
-    val cloudOn: StateFlow<Boolean> = c.settings.settings.map { it.cloudAiEnabled && c.secrets.get(com.pkos.app.processing.GEMINI_KEY) != null }
+    val cloudOn: StateFlow<Boolean> = c.settings.settings.map { it.cloudAiEnabled && c.cloudConfigured(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Answers only from the owner's items; cloud only when enabled (and never with local-only items). */
