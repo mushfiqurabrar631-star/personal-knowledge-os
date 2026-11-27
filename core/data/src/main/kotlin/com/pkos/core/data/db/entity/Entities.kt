@@ -143,6 +143,8 @@ data class AttachmentEntity(
     @ColumnInfo(name = "notion_attached", defaultValue = "0") val notionAttached: Boolean = false,
     /** Why the file is not in Notion (e.g. TOO_LARGE); null when attached or pending. */
     @ColumnInfo(name = "notion_skip_reason") val notionSkipReason: String? = null,
+    /** Owner-only Google Drive link for a file too large for Notion's free plan (opt-in, spec 7.4). */
+    @ColumnInfo(name = "drive_link") val driveLink: String? = null,
 )
 
 /** Capture provenance (spec 3.2). */

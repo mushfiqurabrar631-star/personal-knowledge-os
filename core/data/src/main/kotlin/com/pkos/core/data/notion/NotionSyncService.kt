@@ -79,6 +79,8 @@ class NotionSyncService(
     private val dataSourceId: String = MASTER_DATA_SOURCE_ID,
     private val clock: () -> Long = System::currentTimeMillis,
     private val uploader: NotionFileUploader = NotionFileUploader(client),
+    /** Null unless the owner turned on large files via Google Drive and Drive is connected. */
+    private val largeFiles: suspend () -> LargeFileHost? = { null },
 ) {
     private val engine = NotionSyncEngine(client, dataSourceId, RoomSyncJournal(db), clock = { Instant.ofEpochMilli(clock()) })
     private val dao get() = db.notionDao()
@@ -138,8 +140,12 @@ class NotionSyncService(
         val attachments = db.attachmentDao().forItem(itemId)
         val refs = mutableListOf<Pair<AttachmentEntity, NotionFileRef>>()
         if ("Files & media" !in kept) for (a in attachments) {
-            if (a.notionSkipReason == SKIP_TOO_LARGE) continue
             val name = (a.filename ?: (a.sha256.take(12) + extension(a.mimeType))).take(100)
+            if (a.driveLink != null) { refs += a to NotionFileRef(name, externalUrl = a.driveLink); continue }
+            if (a.notionSkipReason == SKIP_TOO_LARGE) {
+                when (val r = hostLarge(itemId, attempt, a, name)) { is NotionSyncResult -> return r; is NotionFileRef -> refs += a to r }
+                continue
+            }
             val fresh = a.notionFileUploadId != null && (a.notionAttached || clock() - (a.notionUploadedAt ?: 0) < NotionFileUploader.UPLOAD_REUSE_WINDOW_MS)
             if (fresh) { refs += a to NotionFileRef(name, fileUploadId = a.notionFileUploadId); continue }
             when (val up = uploader.upload(resolveFile(a.localPath), name, a.mimeType ?: "application/octet-stream")) {
@@ -147,7 +153,10 @@ class NotionSyncService(
                     dao.setUpload(a.id, up.fileUploadId, clock())
                     refs += a to NotionFileRef(name, fileUploadId = up.fileUploadId)
                 }
-                NotionFileUploader.Result.TooLarge -> dao.setUploadSkipped(a.id, SKIP_TOO_LARGE)
+                NotionFileUploader.Result.TooLarge -> {
+                    dao.setUploadSkipped(a.id, SKIP_TOO_LARGE)
+                    when (val r = hostLarge(itemId, attempt, a, name)) { is NotionSyncResult -> return r; is NotionFileRef -> refs += a to r }
+                }
                 is NotionFileUploader.Result.Failed -> when (up.error.kind) {
                     NotionErrorKind.NETWORK, NotionErrorKind.SERVER, NotionErrorKind.RATE_LIMITED, NotionErrorKind.CONFLICT, NotionErrorKind.INVALID_RESPONSE ->
                         return record(itemId, attempt, NotionSyncResult.Retry(backoff(attempt, up.error.retryAfterSeconds), "UPLOAD_${up.error.kind}"))
@@ -216,6 +225,26 @@ class NotionSyncService(
     }
 
     private suspend fun keptProperties(itemId: String): Set<String> = dao.kept(itemId)?.let { jsonList(it.propertyNames) }.orEmpty()
+
+    /**
+     * A file over Notion's limit goes to the owner's Drive only when that is turned on; otherwise it stays skipped (the
+     * page still syncs). Returns the file reference, a result that stops this sync (retry later), or null (stay skipped).
+     */
+    private suspend fun hostLarge(itemId: String, attempt: Int, a: AttachmentEntity, name: String): Any? {
+        val host = largeFiles() ?: return null
+        return try {
+            val link = host.host(resolveFile(a.localPath), name, a.mimeType ?: "application/octet-stream", a.sha256)
+            dao.setDriveLink(a.id, link)
+            NotionFileRef(name, externalUrl = link)
+        } catch (e: com.pkos.core.data.backup.DriveException) {
+            when (e.kind) {
+                com.pkos.core.data.backup.DriveErrorKind.NETWORK, com.pkos.core.data.backup.DriveErrorKind.RATE_LIMITED,
+                com.pkos.core.data.backup.DriveErrorKind.SERVER, com.pkos.core.data.backup.DriveErrorKind.SESSION_EXPIRED ->
+                    record(itemId, attempt, NotionSyncResult.Retry(backoff(attempt, e.retryAfterMs?.div(1000)), "DRIVE_${e.kind}"))
+                else -> null // auth, full, other: the file stays "too large" and the page syncs without it
+            }
+        }
+    }
 
     private suspend fun toSyncItem(item: KnowledgeItemEntity, files: List<NotionFileRef>, kept: Set<String>): SyncItem {
         val category = item.categoryId?.takeIf { it != "sys-unsorted" }?.let { db.categoryDao().get(it)?.name }

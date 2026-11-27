@@ -41,6 +41,8 @@ data class AppSettings(
     val reminderIntervalDays: Int = 7,
     /** Spec 3: fetch public page title/description for shared links. Off by default (the site sees the request). */
     val linkPreviewsEnabled: Boolean = false,
+    /** Spec 7.4: Notion files over the free limit go to the owner's Drive as a link. Off by default. */
+    val largeFilesViaDrive: Boolean = false,
     /** Spec 4.6 provider switch: "gemini" or "openai_compat" (owner's own key and endpoint). */
     val aiProvider: String = "gemini",
     val compatBaseUrl: String = "",
@@ -59,6 +61,7 @@ interface SettingsRepository {
     suspend fun updateBackup(transform: (AppSettings) -> AppSettings)
     suspend fun updateFeatures(semantic: Boolean? = null, reminders: Boolean? = null, reminderDays: Int? = null)
     suspend fun setLinkPreviews(enabled: Boolean)
+    suspend fun setLargeFilesViaDrive(enabled: Boolean)
     suspend fun setAiProvider(provider: String, baseUrl: String, model: String)
     /** Spec 10.1 "delete all data": back to first-run defaults (onboarding shows again). */
     suspend fun clearAll()
@@ -88,6 +91,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
         val retMonthly = androidx.datastore.preferences.core.intPreferencesKey("retention_monthly")
         val semantic = booleanPreferencesKey("semantic_search")
         val linkPreviews = booleanPreferencesKey("link_previews")
+        val largeFilesDrive = booleanPreferencesKey("large_files_drive")
         val aiProvider = stringPreferencesKey("ai_provider")
         val compatBaseUrl = stringPreferencesKey("compat_base_url")
         val compatModel = stringPreferencesKey("compat_model")
@@ -113,6 +117,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
             retentionMonthly = p[Keys.retMonthly] ?: 6,
             semanticSearchEnabled = p[Keys.semantic] ?: true,
             linkPreviewsEnabled = p[Keys.linkPreviews] ?: false,
+            largeFilesViaDrive = p[Keys.largeFilesDrive] ?: false,
             aiProvider = p[Keys.aiProvider] ?: "gemini",
             compatBaseUrl = p[Keys.compatBaseUrl] ?: "",
             compatModel = p[Keys.compatModel] ?: "",
@@ -129,6 +134,7 @@ class DataStoreSettingsRepository(private val store: DataStore<Preferences>) : S
     override suspend fun setAiModel(model: String) { store.edit { it[Keys.aiModel] = model.trim() } }
     override suspend fun setNotionSyncEnabled(enabled: Boolean) { store.edit { it[Keys.notionSync] = enabled } }
     override suspend fun setLinkPreviews(enabled: Boolean) { store.edit { it[Keys.linkPreviews] = enabled } }
+    override suspend fun setLargeFilesViaDrive(enabled: Boolean) { store.edit { it[Keys.largeFilesDrive] = enabled } }
     override suspend fun setAiProvider(provider: String, baseUrl: String, model: String) {
         store.edit { it[Keys.aiProvider] = provider; it[Keys.compatBaseUrl] = baseUrl.trim(); it[Keys.compatModel] = model.trim() }
     }

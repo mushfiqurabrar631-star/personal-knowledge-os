@@ -87,7 +87,15 @@ class AppContainer(
 
     /** One client for the whole app so the 3 requests/second limit is shared by every sync. */
     val notionClient = com.pkos.core.notion.api.NotionClient(notionTransport, { secrets.get(com.pkos.app.notion.NOTION_TOKEN) })
-    val notionSync by lazy { com.pkos.core.data.notion.NotionSyncService(database, notionClient, attachments::resolve) }
+    val notionSync by lazy {
+        com.pkos.core.data.notion.NotionSyncService(
+            database, notionClient, attachments::resolve,
+            largeFiles = {
+                val s = settings.settings.first()
+                if (s.largeFilesViaDrive && s.driveConnected) com.pkos.core.data.notion.DriveLargeFileHost(driveApi) else null
+            },
+        )
+    }
     val notionScheduler = com.pkos.app.notion.NotionSyncScheduler(context)
 
     /** Queues a Notion sync for this item if the owner turned sync on and a token is saved. Otherwise nothing. */

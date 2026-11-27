@@ -24,8 +24,12 @@ class FakeDrive : DriveApi {
     var calls = mutableListOf<String>()
     private var chunksSent = 0
 
+    /** One-shot failure on the next call. */
+    var failNext: DriveErrorKind? = null
+
     private fun gate(op: String) {
         calls += op
+        failNext?.let { failNext = null; throw DriveException(it) }
         if (authRequired) throw DriveException(DriveErrorKind.AUTH_REQUIRED)
     }
 

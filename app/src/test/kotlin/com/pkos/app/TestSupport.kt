@@ -29,6 +29,7 @@ class InMemorySettings(initial: AppSettings = AppSettings()) : SettingsRepositor
     override val settings: Flow<AppSettings> = state
     override suspend fun clearAll() { state.value = AppSettings() }
     override suspend fun setLinkPreviews(enabled: Boolean) { state.value = state.value.copy(linkPreviewsEnabled = enabled) }
+    override suspend fun setLargeFilesViaDrive(enabled: Boolean) { state.value = state.value.copy(largeFilesViaDrive = enabled) }
     override suspend fun setAiProvider(provider: String, baseUrl: String, model: String) { state.value = state.value.copy(aiProvider = provider, compatBaseUrl = baseUrl.trim(), compatModel = model.trim()) }
     override suspend fun setOnboardingCompleted(done: Boolean) { state.value = state.value.copy(onboardingCompleted = done) }
     override suspend fun setThemeMode(mode: ThemeMode) { state.value = state.value.copy(themeMode = mode) }

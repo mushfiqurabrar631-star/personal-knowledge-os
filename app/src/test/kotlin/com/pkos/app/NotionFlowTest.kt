@@ -130,4 +130,14 @@ class NotionFlowTest {
         assertTrue(work.isNotEmpty())
         assertEquals(writesBefore, fake.calls.count { it.method == "PATCH" }) // nothing written by the UI itself
     }
+
+    @Test fun largeFilesViaDriveIsOffByDefaultAndNeedsDrive() {
+        val c = testContainer()
+        openNotionSettings(c)
+        assertFalse(runBlocking { c.settings.settings.first().largeFilesViaDrive })
+        rule.onNodeWithTag("switch_large_files_drive").performScrollTo().assertIsNotEnabled()
+        runBlocking { c.settings.updateBackup { it.copy(driveConnected = true) } }
+        rule.onNodeWithTag("switch_large_files_drive").performScrollTo().assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { runBlocking { c.settings.settings.first().largeFilesViaDrive } }
+    }
 }

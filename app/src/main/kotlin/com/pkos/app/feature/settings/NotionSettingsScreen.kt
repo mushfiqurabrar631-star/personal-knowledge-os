@@ -113,6 +113,8 @@ class NotionSettingsViewModel(private val container: AppContainer) : ViewModel()
         }
     }
 
+    fun setLargeFiles(on: Boolean) { viewModelScope.launch { container.settings.setLargeFilesViaDrive(on) } }
+
     fun syncNow() { viewModelScope.launch { _queued.value = container.requestNotionSyncAll(androidx.work.ExistingWorkPolicy.KEEP) } }
 }
 
@@ -124,7 +126,7 @@ fun NotionSettingsRoute(onBack: () -> Unit) {
     val check by vm.check.collectAsStateWithLifecycle()
     val counts by vm.counts.collectAsStateWithLifecycle()
     val queued by vm.queued.collectAsStateWithLifecycle()
-    NotionSettingsScreen(settings, saved, check, counts, queued, onBack, vm::saveToken, vm::removeToken, vm::runCheck, vm::setSync, vm::syncNow)
+    NotionSettingsScreen(settings, saved, check, counts, queued, onBack, vm::saveToken, vm::removeToken, vm::runCheck, vm::setSync, vm::syncNow, vm::setLargeFiles)
 }
 
 /** Notion connection (R-06): token typed only here, encrypted with Android Keystore; live check; owner-controlled sync. */
@@ -142,6 +144,7 @@ fun NotionSettingsScreen(
     onCheck: () -> Unit,
     onSync: (Boolean) -> Unit,
     onSyncNow: () -> Unit,
+    onLargeFiles: (Boolean) -> Unit = {},
 ) {
     var token by rememberSaveable { mutableStateOf("") }
     val verified = (check as? CheckState.Done)?.report is ConnectionReport.Ok
@@ -211,6 +214,20 @@ fun NotionSettingsScreen(
                 queued?.let { Text(stringResource(R.string.notion_queued_now, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (settings.notionSyncEnabled) {
                     OutlinedButton(onClick = onSyncNow, modifier = Modifier.testTag("notion_sync_now")) { Text(stringResource(R.string.notion_sync_now)) }
+                }
+            }
+            Card {
+                Row(
+                    Modifier.toggleable(settings.largeFilesViaDrive, enabled = settings.driveConnected || settings.largeFilesViaDrive, role = Role.Switch, onValueChange = onLargeFiles)
+                        .testTag("switch_large_files_drive"),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Description, null); Spacer(Modifier.width(Spacing.m))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.notion_large_files), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(if (settings.driveConnected) R.string.notion_large_files_body else R.string.notion_large_files_needs_drive), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = settings.largeFilesViaDrive, onCheckedChange = null, enabled = settings.driveConnected || settings.largeFilesViaDrive)
                 }
             }
             NoticeCard(Icons.Outlined.Shield, stringResource(R.string.notion_rules_title), stringResource(R.string.notion_rules_body))

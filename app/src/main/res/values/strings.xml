@@ -660,4 +660,7 @@
     <string name="settings_link_previews">লিংকের শিরোনাম ও বিবরণ আনুন</string>
     <string name="settings_link_previews_body">ডিফল্টভাবে বন্ধ। চালু করলে শেয়ার করা লিংকের প্রকাশ্য শিরোনাম/বিবরণ আনা হয় (YouTube-এর জন্য YouTube-এর প্রকাশ্য সেবা)। এতে ওই ওয়েবসাইট অনুরোধটি দেখতে পায়। “শুধু ফোনে” আইটেমের জন্য কখনো নয়।</string>
     <string name="item_section_link">লিংকের তথ্য</string>
+    <string name="notion_large_files">বড় ফাইল Google Drive লিংক হিসেবে</string>
+    <string name="notion_large_files_body">ডিফল্টভাবে বন্ধ। Notion-এর ফ্রি সীমা (৫ MB) ছাড়ানো ফাইল আপনার Drive-এর “Personal Knowledge OS Files” ফোল্ডারে এনক্রিপশন ছাড়া রাখা হয় এবং Notion পেজে তার লিংক যায়। শেয়ারিং বদলানো হয় না—লিংক শুধু আপনার Google অ্যাকাউন্টে খোলে। “শুধু ফোনে” আইটেম কখনো যায় না।</string>
+    <string name="notion_large_files_needs_drive">এটি চালু করতে আগে ব্যাকআপ সেটিংসে Google Drive যুক্ত করুন।</string>
 </resources>

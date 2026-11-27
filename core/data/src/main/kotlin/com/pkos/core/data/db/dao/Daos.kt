@@ -387,6 +387,9 @@ interface NotionDao {
     @Query("UPDATE attachments SET notion_skip_reason = :reason WHERE id = :id")
     suspend fun setUploadSkipped(id: String, reason: String)
 
+    @Query("UPDATE attachments SET drive_link = :link, notion_skip_reason = NULL WHERE id = :id")
+    suspend fun setDriveLink(id: String, link: String)
+
     @Query("UPDATE attachments SET notion_attached = 1 WHERE id IN (:ids)")
     suspend fun markAttached(ids: List<String>)
 

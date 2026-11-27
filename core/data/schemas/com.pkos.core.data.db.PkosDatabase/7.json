@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 7,
-    "identityHash": "6dad67d67160e888b87b76a174be6e40",
+    "identityHash": "8be0ca115503ce4cdd2b9ba6688e0bca",
     "entities": [
       {
         "tableName": "knowledge_items",
@@ -546,7 +546,7 @@
       },
       {
         "tableName": "attachments",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `knowledge_id` TEXT NOT NULL, `mime_type` TEXT, `filename` TEXT, `size_bytes` INTEGER NOT NULL, `sha256` TEXT NOT NULL, `local_path` TEXT NOT NULL, `cloud_file_id` TEXT, `extraction_status` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `extracted_text` TEXT, `notion_file_upload_id` TEXT, `notion_uploaded_at` INTEGER, `notion_attached` INTEGER NOT NULL DEFAULT 0, `notion_skip_reason` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`knowledge_id`) REFERENCES `knowledge_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `knowledge_id` TEXT NOT NULL, `mime_type` TEXT, `filename` TEXT, `size_bytes` INTEGER NOT NULL, `sha256` TEXT NOT NULL, `local_path` TEXT NOT NULL, `cloud_file_id` TEXT, `extraction_status` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `extracted_text` TEXT, `notion_file_upload_id` TEXT, `notion_uploaded_at` INTEGER, `notion_attached` INTEGER NOT NULL DEFAULT 0, `notion_skip_reason` TEXT, `drive_link` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`knowledge_id`) REFERENCES `knowledge_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -630,6 +630,11 @@
           {
             "fieldPath": "notionSkipReason",
             "columnName": "notion_skip_reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "driveLink",
+            "columnName": "drive_link",
             "affinity": "TEXT"
           }
         ],
@@ -2044,7 +2049,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6dad67d67160e888b87b76a174be6e40')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8be0ca115503ce4cdd2b9ba6688e0bca')"
     ]
   }
 }

@@ -12,7 +12,11 @@ import com.pkos.core.data.model.CaptureMethod
 import com.pkos.core.data.model.JobState
 import com.pkos.core.data.model.PrivacyScope
 import com.pkos.core.data.model.SyncState
+import com.pkos.core.data.backup.DriveErrorKind
+import com.pkos.core.data.backup.FakeDrive
 import com.pkos.core.data.notion.ConnectionReport
+import com.pkos.core.data.notion.DriveLargeFileHost
+import com.pkos.core.data.notion.LargeFileHost
 import com.pkos.core.data.notion.NotionSyncResult
 import com.pkos.core.data.notion.NotionSyncService
 import com.pkos.core.data.processing.DefaultTextExtractor
@@ -61,9 +65,9 @@ class NotionSyncServiceTest {
         service = build()
     }
 
-    private fun build(maxBytes: Long = NotionFileUploader.FREE_PLAN_MAX_BYTES): NotionSyncService {
+    private fun build(maxBytes: Long = NotionFileUploader.FREE_PLAN_MAX_BYTES, host: LargeFileHost? = null): NotionSyncService {
         val client = NotionClient(fake, { token }, RateLimiter.none())
-        return NotionSyncService(db, client, store::resolve, clock = { now }, uploader = NotionFileUploader(client, maxBytes))
+        return NotionSyncService(db, client, store::resolve, clock = { now }, uploader = NotionFileUploader(client, maxBytes), largeFiles = { host })
     }
 
     @After fun tearDown() = db.close()
@@ -233,5 +237,59 @@ class NotionSyncServiceTest {
         assertEquals("ADOPTION_REVIEW", db.notionDao().conflict(id)!!.kind)
         assertEquals(1, fake.createCount()) // no duplicate page
         assertEquals("Completed", prop(fake.pages.getValue(pageId), "Status")["select"]!!.jsonObject["name"]!!.jsonPrimitive.content)
+    }
+
+    private fun bigItem() = runBlocking {
+        captured("big", listOf(CaptureFile("huge.pdf", "application/pdf", null) { ByteArrayInputStream(ByteArray(10_000) { 2 }) }))
+    }
+
+    private fun fileUrls(id: String) = runBlocking {
+        val page = fake.pages.getValue(db.notionDao().mapping(id)!!.notionPageId)
+        prop(page, "Files & media")["files"]!!.jsonArray.mapNotNull { it.jsonObject["external"]?.jsonObject?.get("url")?.jsonPrimitive?.content }
+    }
+
+    @Test fun largeFileGetsAnOwnerOnlyDriveLinkWhenTurnedOn() = runBlocking {
+        val drive = FakeDrive()
+        service = build(maxBytes = 4_096, host = DriveLargeFileHost(drive))
+        val id = bigItem()
+        assertTrue(service.sync(id) is NotionSyncResult.Synced)
+        val stored = drive.files.values.single()
+        assertEquals(10_000, stored.bytes.size)
+        assertEquals("Personal Knowledge OS Files", drive.folders[stored.parent])
+        val link = "https://drive.google.com/file/d/${stored.file.id}/view"
+        assertEquals(listOf(link), fileUrls(id))
+        val att = db.attachmentDao().forItem(id).single()
+        assertEquals(link, att.driveLink); assertNull(att.notionSkipReason)
+        // A later edit reuses the link: no second Drive upload, no Notion upload for the big file.
+        now += 1_000; db.knowledgeDao().setPinned(id, true, now)
+        assertTrue(service.sync(id) is NotionSyncResult.Synced)
+        assertEquals(1, drive.files.size)
+        assertEquals(0, fake.calls.count { it.path == "/file_uploads" })
+    }
+
+    @Test fun largeFileStaysSkippedWhenOffAndIsHostedOnceTurnedOn() = runBlocking {
+        service = build(maxBytes = 4_096)
+        val id = bigItem()
+        assertTrue(service.sync(id) is NotionSyncResult.Synced)
+        assertEquals(NotionSyncService.SKIP_TOO_LARGE, db.attachmentDao().forItem(id).single().notionSkipReason)
+        assertEquals(emptyList<String>(), fileUrls(id))
+        val drive = FakeDrive()
+        service = build(maxBytes = 4_096, host = DriveLargeFileHost(drive))
+        now += 1_000; db.knowledgeDao().setPinned(id, true, now)
+        assertTrue(service.sync(id) is NotionSyncResult.Synced)
+        assertEquals(1, fileUrls(id).size)
+    }
+
+    @Test fun driveTroubleNeverBlocksOrFakesTheLink() = runBlocking {
+        val offline = FakeDrive().apply { failNext = DriveErrorKind.NETWORK }
+        service = build(maxBytes = 4_096, host = DriveLargeFileHost(offline))
+        val id = bigItem()
+        assertTrue(service.sync(id) is NotionSyncResult.Retry)
+        assertNull(db.attachmentDao().forItem(id).single().driveLink)
+        val signedOut = FakeDrive().apply { authRequired = true }
+        service = build(maxBytes = 4_096, host = DriveLargeFileHost(signedOut))
+        assertTrue(service.sync(id, 1) is NotionSyncResult.Synced)
+        assertEquals(emptyList<String>(), fileUrls(id))
+        assertEquals(NotionSyncService.SKIP_TOO_LARGE, db.attachmentDao().forItem(id).single().notionSkipReason)
     }
 }

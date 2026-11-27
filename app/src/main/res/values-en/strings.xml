@@ -641,4 +641,7 @@
     <string name="settings_link_previews">Fetch link titles and descriptions</string>
     <string name="settings_link_previews_body">Off by default. When on, the public title/description of shared links is fetched (YouTube\'s public service for YouTube). The website sees the request. Never for local-only items.</string>
     <string name="item_section_link">Link preview</string>
+    <string name="notion_large_files">Large files as a Google Drive link</string>
+    <string name="notion_large_files_body">Off by default. Files over Notion\'s free limit (5 MB) are stored unencrypted in your Drive folder \"Personal Knowledge OS Files\" and the Notion page gets a link. Sharing is never changed: the link opens only for your Google account. Local-only items never go.</string>
+    <string name="notion_large_files_needs_drive">Connect Google Drive in Backup settings first to turn this on.</string>
 </resources>
