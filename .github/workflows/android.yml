@@ -130,7 +130,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             ./gradlew --no-daemon :app:connectedDebugAndroidTest
-            n=$(cat $(find app/build/outputs/androidTest-results -name 'TEST-*.xml') | grep -o '<testcase ' | wc -l); echo "instrumentation test cases run: $n"; [ "$n" -ge 4 ] || { echo "expected at least 4 device tests"; exit 1; }
+            n=$(find app/build/outputs/androidTest-results -name '*.xml' -exec grep -o '<testcase ' {} + < /dev/null | wc -l); echo "instrumentation test cases run: $n"; [ "$n" -ge 4 ] || { echo "expected at least 4 device tests"; exit 1; }
             adb install -r app/build/outputs/apk/r8check/app-x86_64-r8check.apk
             adb logcat -c
             adb shell am start -W -n com.pkos.app.r8check/com.pkos.app.MainActivity
