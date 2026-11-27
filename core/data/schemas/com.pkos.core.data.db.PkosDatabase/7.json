@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 7,
-    "identityHash": "bcc26ea9c612824342a75f93c200f118",
+    "identityHash": "6dad67d67160e888b87b76a174be6e40",
     "entities": [
       {
         "tableName": "knowledge_items",
@@ -1587,6 +1587,102 @@
         }
       },
       {
+        "tableName": "backup_blobs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `sha256` TEXT NOT NULL, `key_id` TEXT NOT NULL, `file_id` TEXT, `size_bytes` INTEGER NOT NULL DEFAULT 0, `verified` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`name`))",
+        "fields": [
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sha256",
+            "columnName": "sha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "keyId",
+            "columnName": "key_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileId",
+            "columnName": "file_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sizeBytes",
+            "columnName": "size_bytes",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "verified",
+            "columnName": "verified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "name"
+          ]
+        }
+      },
+      {
+        "tableName": "backup_blob_refs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`backup_id` TEXT NOT NULL, `blob_name` TEXT NOT NULL, `local_path` TEXT NOT NULL, PRIMARY KEY(`backup_id`, `blob_name`))",
+        "fields": [
+          {
+            "fieldPath": "backupId",
+            "columnName": "backup_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "blobName",
+            "columnName": "blob_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localPath",
+            "columnName": "local_path",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "backup_id",
+            "blob_name"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_backup_blob_refs_blob_name",
+            "unique": false,
+            "columnNames": [
+              "blob_name"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_backup_blob_refs_blob_name` ON `${TABLE_NAME}` (`blob_name`)"
+          }
+        ]
+      },
+      {
         "tableName": "knowledge_fts",
         "createSql": "CREATE VIRTUAL TABLE IF NOT EXISTS `${TABLE_NAME}` USING FTS4(`item_id` TEXT NOT NULL, `indexed_at` INTEGER NOT NULL, `title` TEXT NOT NULL, `content` TEXT NOT NULL, `tags` TEXT NOT NULL, `topics` TEXT NOT NULL, `url` TEXT NOT NULL, tokenize=unicode61, notindexed=`item_id`, notindexed=`indexed_at`)",
         "fields": [
@@ -1948,7 +2044,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bcc26ea9c612824342a75f93c200f118')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6dad67d67160e888b87b76a174be6e40')"
     ]
   }
 }

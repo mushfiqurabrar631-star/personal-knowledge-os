@@ -19,6 +19,8 @@ class FakeDrive : DriveApi {
     var failChunkAfter: Int? = null
     var expireSessions = false
     var corruptStoredMd5 = false
+    /** Only files whose name ends with this get a wrong md5 (null = all, when [corruptStoredMd5]). */
+    var corruptOnly: String? = null
     var calls = mutableListOf<String>()
     private var chunksSent = 0
 
@@ -67,7 +69,7 @@ class FakeDrive : DriveApi {
     override suspend fun getFile(id: String): DriveFile {
         gate("get")
         val f = files[id]?.file ?: throw DriveException(DriveErrorKind.NOT_FOUND)
-        return if (corruptStoredMd5) f.copy(md5 = "0".repeat(32)) else f
+        return if (corruptStoredMd5 && (corruptOnly == null || f.name.endsWith(corruptOnly!!))) f.copy(md5 = "0".repeat(32)) else f
     }
 
     override suspend fun listFolder(folderId: String) = files.values.filter { it.parent == folderId }.map { it.file }.also { gate("list") }
@@ -77,6 +79,9 @@ class FakeDrive : DriveApi {
     override suspend fun delete(id: String) { gate("delete"); files.remove(id) ?: throw DriveException(DriveErrorKind.NOT_FOUND) }
 
     override suspend fun quota(): DriveQuota { gate("quota"); return quota }
+
+    fun archives() = files.values.filter { it.file.name.endsWith(BackupService.EXT) }
+    fun blobs() = files.values.filter { it.file.name.endsWith(BackupBlobs.EXT) }
 
     fun tamper(id: String, at: Int) { val s = files.getValue(id); val b = s.bytes.copyOf(); b[at] = (b[at].toInt() xor 0x40).toByte(); files[id] = Stored(s.file, b, s.parent) }
 }

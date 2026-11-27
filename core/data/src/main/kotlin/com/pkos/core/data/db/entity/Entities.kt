@@ -259,6 +259,29 @@ data class BackupSnapshotEntity(
     @ColumnInfo(name = "verified_at") val verifiedAt: Long? = null,
 )
 
+/**
+ * v7 (spec 8.1 incremental attachment upload): each attachment is uploaded once as its own encrypted blob, named by
+ * key id + SHA-256. A backup archive then holds the database and a manifest that points to the blobs.
+ */
+@Entity(tableName = "backup_blobs")
+data class BackupBlobEntity(
+    @PrimaryKey val name: String,
+    val sha256: String,
+    @ColumnInfo(name = "key_id") val keyId: String,
+    @ColumnInfo(name = "file_id") val fileId: String? = null,
+    @ColumnInfo(name = "size_bytes", defaultValue = "0") val sizeBytes: Long = 0,
+    val verified: Boolean = false,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+)
+
+/** Which blobs a backup needs (so retention never deletes a blob a kept backup still points to). */
+@Entity(tableName = "backup_blob_refs", primaryKeys = ["backup_id", "blob_name"], indices = [Index("blob_name")])
+data class BackupBlobRefEntity(
+    @ColumnInfo(name = "backup_id") val backupId: String,
+    @ColumnInfo(name = "blob_name") val blobName: String,
+    @ColumnInfo(name = "local_path") val localPath: String,
+)
+
 /** Recovery-key metadata (spec 6: recovery_metadata). Never contains the key or anything derived from it but its id. */
 @Entity(tableName = "recovery_metadata")
 data class RecoveryMetadataEntity(

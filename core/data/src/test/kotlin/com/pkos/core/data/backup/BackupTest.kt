@@ -148,13 +148,18 @@ class BackupRestoreTest {
     @Test fun backupIsEncryptedUploadedAndVerified() = runBlocking {
         fill()
         val r = backup.run() as BackupRunResult.Verified
-        val remote = drive.files.values.single()
+        val remote = drive.archives().single()
+        assertEquals(1, drive.blobs().size) // the photo went up as its own encrypted blob (spec 8.1)
         assertEquals(BACKUP_FOLDER_NAME, drive.folders[remote.parent])
         assertEquals(r.snapshot.archiveMd5, remote.file.md5)
         assertEquals(BackupStatus.VERIFIED, db.backupDao().get(r.snapshot.id)!!.status)
         assertEquals(2, r.snapshot.itemCount); assertEquals(1, r.snapshot.attachmentCount)
         val text = String(remote.bytes, Charsets.ISO_8859_1)
         assertFalse(text.contains("Kotlin coroutines")); assertFalse(text.contains("SQLite format")); assertFalse(text.contains(recoveryKey))
+        val blob = drive.blobs().single()
+        assertEquals(blob.parent, remote.parent)
+        val photo = File(attRoot, db.attachmentDao().all().single().localPath).readBytes()
+        assertFalse(blob.bytes.toList().windowed(64, 4096).any { w -> photo.toList().windowed(64, 4096).contains(w) }) // no plaintext
         assertTrue(work.listFiles()!!.isEmpty()) // no plaintext or archive left behind
     }
 
@@ -170,8 +175,11 @@ class BackupRestoreTest {
         assertTrue(drive.files.isEmpty())
     }
 
+    /** The archive itself must be big enough to span chunks: an item with a lot of incompressible text. */
+    private suspend fun fillBigText() { val r = kotlin.random.Random(5); capture(String(CharArray(700_000) { "abcdefghijklmnopqrstuvwxyz0123456789"[r.nextInt(36)] })) }
+
     @Test fun interruptedUploadResumesWithoutStartingOver() = runBlocking {
-        fill()
+        fillBigText()
         drive.failChunkAfter = 1
         val first = backup.run()
         assertTrue(first is BackupRunResult.Retry)
@@ -183,7 +191,17 @@ class BackupRestoreTest {
         assertEquals(starts, drive.calls.count { it == "start" }) // same session resumed
         assertTrue("query" in drive.calls)
         assertEquals(partial.id, r.snapshot.id)
-        assertEquals(1, drive.files.size)
+        assertEquals(1, drive.archives().size)
+    }
+
+    @Test fun interruptedAttachmentUploadRestartsOnlyThatBlob() = runBlocking {
+        fill()
+        drive.failChunkAfter = 1 // fails inside the 600 KB photo blob
+        assertTrue(backup.run() is BackupRunResult.Retry)
+        assertEquals(BackupStatus.ENCRYPTED, db.backupDao().unfinished()!!.status) // archive not started yet
+        assertTrue(drive.files.isEmpty())
+        assertTrue(backup.run() is BackupRunResult.Verified)
+        assertEquals(1, drive.archives().size); assertEquals(1, drive.blobs().size)
     }
 
     @Test fun expiredSessionRestartsUploadSafely() = runBlocking {
@@ -192,16 +210,53 @@ class BackupRestoreTest {
         assertTrue(backup.run() is BackupRunResult.Retry)
         drive.expireSessions = false
         assertTrue(backup.run() is BackupRunResult.Verified)
-        assertEquals(1, drive.files.size)
+        assertEquals(1, drive.archives().size); assertEquals(1, drive.blobs().size)
     }
 
     @Test fun mismatchAfterUploadIsNeverMarkedVerified() = runBlocking {
         fill()
-        drive.corruptStoredMd5 = true
+        drive.corruptStoredMd5 = true; drive.corruptOnly = BackupService.EXT // the archive's check fails, the blob's passes
         assertEquals(BackupRunResult.Failed(BackupService.VERIFY_MISMATCH), backup.run())
         assertTrue(db.backupDao().verified().isEmpty())
-        assertTrue(drive.files.isEmpty()) // the unverifiable copy was removed
+        assertTrue(drive.archives().isEmpty()) // the unverifiable copy was removed
         assertEquals(2, db.knowledgeDao().countAll())
+    }
+
+    @Test fun attachmentBlobMismatchIsNeverAccepted() = runBlocking {
+        fill()
+        drive.corruptStoredMd5 = true; drive.corruptOnly = BackupBlobs.EXT
+        assertTrue(backup.run() is BackupRunResult.Retry)
+        assertTrue(drive.files.isEmpty()) // bad blob deleted, archive never uploaded
+        assertTrue(db.backupDao().verified().isEmpty())
+        drive.corruptStoredMd5 = false
+        assertTrue(backup.run() is BackupRunResult.Verified)
+    }
+
+    @Test fun unchangedAttachmentsAreUploadedOnlyOnce() = runBlocking {
+        fill()
+        assertTrue(backup.run() is BackupRunResult.Verified)
+        val firstBlobBytes = drive.blobs().sumOf { it.bytes.size }
+        now += 86_400_000L; drive.clock = now
+        capture("one more note")
+        val chunksBefore = drive.calls.count { it == "chunk" }
+        assertTrue(backup.run() is BackupRunResult.Verified)
+        assertEquals(2, drive.archives().size); assertEquals(1, drive.blobs().size) // the photo was not sent again
+        assertTrue(drive.calls.count { it == "chunk" } - chunksBefore <= 2) // only the small archive
+        assertTrue(firstBlobBytes > 600_000)
+    }
+
+    @Test fun blobsLeaveDriveOnlyWhenNoKeptBackupNeedsThem() = runBlocking {
+        fill()
+        assertTrue(backup.run() is BackupRunResult.Verified)
+        // The photo is deleted on the phone; later backups no longer reference its blob.
+        val att = db.attachmentDao().all().single()
+        db.openHelper.writableDatabase.execSQL("DELETE FROM attachments")
+        repeat(3) { now += 86_400_000L; drive.clock = now; capture("day $it"); assertTrue(backup.run() is BackupRunResult.Verified) }
+        backup = BackupService(db, ctx.getDatabasePath(dbName), attRoot, work, drive, { kek }, "1.0-test", retention = { RetentionPolicy(3, 0, 0) }, clock = { now }, kdfIterations = 1_000)
+        backup.prune()
+        assertEquals(3, drive.archives().size)
+        assertTrue(drive.blobs().isEmpty()) // only the pruned backup pointed to it
+        assertTrue(File(attRoot, att.localPath).exists()) // local files are never touched by pruning
     }
 
     @Test fun fullDriveIsReportedBeforeUploading() = runBlocking {
@@ -219,7 +274,8 @@ class BackupRestoreTest {
         backup = BackupService(db, ctx.getDatabasePath(dbName), attRoot, work, drive, { kek }, "1.0-test", retention = { RetentionPolicy(3, 0, 0) }, clock = { now }, kdfIterations = 1_000)
         backup.prune()
         assertEquals(3, db.backupDao().verified().size)
-        assertEquals(3, drive.files.size)
+        assertEquals(3, drive.archives().size)
+        assertEquals(1, drive.blobs().size) // the photo blob is shared by all kept backups
     }
 
     // ---------- restore ----------
@@ -288,6 +344,16 @@ class BackupRestoreTest {
         try { BackupArchive.verifyChecksums(p.stagingDir, p.manifest); fail() } catch (e: CorruptBackupException) { }
         val db2 = File(p.stagingDir, "database.sqlite"); db2.appendBytes(byteArrayOf(1))
         try { BackupArchive.verifyChecksums(p.stagingDir, p.manifest.copy(attachments = emptyList())); fail() } catch (e: CorruptBackupException) { }
+    }
+
+    @Test fun tamperedOrMissingAttachmentBlobStopsTheRestore() = runBlocking {
+        val remote = backedUp()
+        val blob = drive.blobs().single()
+        drive.tamper(blob.file.id, blob.bytes.size / 2)
+        try { restoreOn("t-${UUID.randomUUID()}.db", tmp.newFolder(), tmp.newFolder()).prepareFromDrive(remote, recoveryKey, null); fail() } catch (e: CorruptBackupException) { }
+        drive.files.remove(blob.file.id)
+        try { restoreOn("m-${UUID.randomUUID()}.db", tmp.newFolder(), tmp.newFolder()).prepareFromDrive(remote, recoveryKey, null); fail() } catch (e: CorruptBackupException) { }
+        assertEquals(2, db.knowledgeDao().countAll()) // nothing local changed
     }
 
     @Test fun newerBackupSchemaIsRefused() {

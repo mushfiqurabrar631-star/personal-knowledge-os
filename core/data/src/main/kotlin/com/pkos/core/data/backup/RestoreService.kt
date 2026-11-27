@@ -46,11 +46,35 @@ class RestoreService(
     suspend fun prepareFromDrive(file: DriveFile, recoveryKey: String?, storedKek: ByteArray?): RestorePreview {
         val dir = staging.apply { deleteRecursively(); mkdirs() }
         val archive = File(dir, "archive$EXT")
-        (drive ?: error("Drive not connected")).download(file.id, archive)
-        return prepareFromArchive(archive, recoveryKey, storedKek)
+        val d = drive ?: error("Drive not connected")
+        d.download(file.id, archive)
+        val o = open(archive, recoveryKey, storedKek, deferBlobs = true)
+        // Format 2: attachments live in their own encrypted blobs next to the archive (spec 8.1 incremental upload).
+        if (o.manifest.blobEntries.isNotEmpty()) {
+            val folder = d.ensureFolder(BACKUP_FOLDER_NAME)
+            val remote = d.listFolder(folder).associateBy { it.name }
+            for (e in o.manifest.blobEntries) {
+                val r = remote[e.blob] ?: throw CorruptBackupException("attachment blob missing in Drive: ${e.path}")
+                val enc = File(dir, "blob.tmp")
+                try {
+                    d.download(r.id, enc)
+                    BackupBlobs.decrypt(enc, File(o.tree, e.path).apply { parentFile?.mkdirs() }, o.kek, o.keyId, e.sha256)
+                } finally { enc.delete() }
+            }
+        }
+        BackupArchive.verifyChecksums(o.tree, o.manifest) // every attachment, now complete
+        return finish(o)
     }
 
+    /** From an archive file alone. A format-2 backup also needs its blobs, so it can only be restored from Drive. */
     fun prepareFromArchive(archive: File, recoveryKey: String?, storedKek: ByteArray?): RestorePreview {
+        val o = open(archive, recoveryKey, storedKek, deferBlobs = false)
+        return finish(o)
+    }
+
+    private class Opened(val tree: File, val manifest: BackupManifest, val kek: ByteArray, val keyId: String)
+
+    private fun open(archive: File, recoveryKey: String?, storedKek: ByteArray?, deferBlobs: Boolean): Opened {
         val dir = staging.apply { mkdirs() }
         val header = BackupCrypto.readHeader(archive)
         val headerSchema = header.optInt("schema_version", Int.MAX_VALUE)
@@ -70,11 +94,15 @@ class RestoreService(
             BackupCrypto.decrypt(archive, zip, dek)
         } finally { dek.fill(0) }
         if (archive.parentFile == dir) archive.delete()
-        val manifest = try { BackupArchive.extractAndVerify(zip, tree) } finally { zip.delete() }
+        val manifest = try { BackupArchive.extractAndVerify(zip, tree, deferBlobs) } finally { zip.delete() }
         if (manifest.schemaVersion > DB_VERSION) throw IncompatibleBackupException(manifest.schemaVersion)
-        val (schema, items, _) = BackupArchive.checkDatabase(File(tree, "database.sqlite"))
-        if (schema != manifest.schemaVersion || items != manifest.itemCount) throw CorruptBackupException("manifest does not match database")
-        return compare(tree, manifest, kek, keyId)
+        return Opened(tree, manifest, kek, keyId)
+    }
+
+    private fun finish(o: Opened): RestorePreview {
+        val (schema, items, _) = BackupArchive.checkDatabase(File(o.tree, "database.sqlite"))
+        if (schema != o.manifest.schemaVersion || items != o.manifest.itemCount) throw CorruptBackupException("manifest does not match database")
+        return compare(o.tree, o.manifest, o.kek, o.keyId)
     }
 
     private fun compare(tree: File, manifest: BackupManifest, kek: ByteArray, keyId: String): RestorePreview {

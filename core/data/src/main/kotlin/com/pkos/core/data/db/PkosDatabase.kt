@@ -48,6 +48,7 @@ const val DB_VERSION = 7
         CollectionItemEntity::class, ItemVersionEntity::class, com.pkos.core.data.db.entity.AiRunEntity::class,
         com.pkos.core.data.db.entity.NotionKeptPropertiesEntity::class, com.pkos.core.data.db.entity.NotionConflictEntity::class,
         com.pkos.core.data.db.entity.RecoveryMetadataEntity::class,
+        com.pkos.core.data.db.entity.BackupBlobEntity::class, com.pkos.core.data.db.entity.BackupBlobRefEntity::class,
         com.pkos.core.data.db.entity.KnowledgeFtsEntity::class, com.pkos.core.data.db.entity.EmbeddingEntity::class,
         com.pkos.core.data.db.entity.KnowledgeLinkEntity::class, com.pkos.core.data.db.entity.ActionItemEntity::class,
         com.pkos.core.data.db.entity.DismissalEntity::class,

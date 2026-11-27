@@ -457,6 +457,30 @@ interface BackupDao {
 
     @Upsert
     suspend fun upsertRecovery(r: com.pkos.core.data.db.entity.RecoveryMetadataEntity)
+
+    // ---- v7 incremental attachment blobs ----
+    @Upsert
+    suspend fun upsertBlob(b: com.pkos.core.data.db.entity.BackupBlobEntity)
+
+    @Query("SELECT * FROM backup_blobs WHERE name = :name")
+    suspend fun blob(name: String): com.pkos.core.data.db.entity.BackupBlobEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertRefs(refs: List<com.pkos.core.data.db.entity.BackupBlobRefEntity>)
+
+    @Query("SELECT * FROM backup_blob_refs WHERE backup_id = :backupId")
+    suspend fun refs(backupId: String): List<com.pkos.core.data.db.entity.BackupBlobRefEntity>
+
+    /** Blobs that no unfinished or verified backup points to any more. */
+    @Query("""SELECT * FROM backup_blobs WHERE name NOT IN (SELECT r.blob_name FROM backup_blob_refs r JOIN backup_snapshots s ON s.id = r.backup_id
+        WHERE s.status IN ('CREATING','ENCRYPTED','UPLOADING','UPLOADED','VERIFIED'))""")
+    suspend fun orphanBlobs(): List<com.pkos.core.data.db.entity.BackupBlobEntity>
+
+    @Query("DELETE FROM backup_blobs WHERE name = :name")
+    suspend fun deleteBlob(name: String)
+
+    @Query("DELETE FROM backup_blob_refs WHERE backup_id IN (SELECT id FROM backup_snapshots WHERE status IN ('PRUNED','FAILED'))")
+    suspend fun dropDeadRefs()
 }
 
 data class IdText(val id: String, @ColumnInfo(name = "raw_text") val rawText: String)

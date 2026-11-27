@@ -2,6 +2,8 @@ package com.pkos.core.data.backup
 
 import com.pkos.core.data.db.DB_VERSION
 import com.pkos.core.data.db.PkosDatabase
+import com.pkos.core.data.db.entity.BackupBlobEntity
+import com.pkos.core.data.db.entity.BackupBlobRefEntity
 import com.pkos.core.data.db.entity.BackupSnapshotEntity
 import com.pkos.core.data.db.entity.RecoveryMetadataEntity
 import com.pkos.core.data.model.BackupStatus
@@ -79,11 +81,15 @@ class BackupService(
             var quotaWarning = false
             if (s.status == BackupStatus.ENCRYPTED) {
                 val q = drive.quota()
-                q.limitBytes?.let { limit ->
-                    if (q.usageBytes + s.sizeBytes > limit) { save(s.copy(errorCode = DRIVE_FULL)); return BackupRunResult.ActionRequired(DRIVE_FULL) }
-                    quotaWarning = q.usageBytes + s.sizeBytes > limit * QUOTA_WARN_RATIO
-                }
                 val folder = drive.ensureFolder(BACKUP_FOLDER_NAME)
+                val pending = pendingBlobs(s, folder)
+                val needed = s.sizeBytes + pending.sumOf { File(attachmentsRoot, it.localPath).length() }
+                q.limitBytes?.let { limit ->
+                    if (q.usageBytes + needed > limit) { save(s.copy(errorCode = DRIVE_FULL)); return BackupRunResult.ActionRequired(DRIVE_FULL) }
+                    quotaWarning = q.usageBytes + needed > limit * QUOTA_WARN_RATIO
+                }
+                // Attachments first, each verified; the archive (which points to them) goes up last.
+                for (ref in pending) uploadBlob(ref, folder, kek, meta.keyId)
                 val session = drive.startResumableUpload(folder, fileName(s), s.sizeBytes, appProperties(s))
                 s = save(s.copy(status = BackupStatus.UPLOADING, uploadSession = session, uploadedBytes = 0, errorCode = null))
             }
@@ -140,7 +146,11 @@ class BackupService(
                 .put("wrapped_key", JSONObject().put("nonce", b64(wrapNonce)).put("ciphertext", b64(wrapped)))
                 .put("schema_version", DB_VERSION).put("app_version", appVersion)
             val zip = File(dir, "payload.zip")
-            val manifest = BackupArchive.writeZip(zip, snap, atts, header, s0.id, s0.createdAt, appVersion)
+            val manifest = BackupArchive.writeZip(zip, snap, atts, header, s0.id, s0.createdAt, appVersion, blobKeyId = meta.keyId)
+            val byName = atts.associate { (f, n) -> n to f }
+            dao.insertRefs(manifest.blobEntries.mapNotNull { e ->
+                byName[e.path.removePrefix("attachments/")]?.let { f -> BackupBlobRefEntity(s0.id, e.blob!!, f.relativeTo(attachmentsRoot).path) }
+            })
             snap.delete()
             BackupCrypto.encrypt(zip, archive, header, dek)
             dek.fill(0)
@@ -175,6 +185,44 @@ class BackupService(
         return save(s.copy(status = BackupStatus.UPLOADED, fileId = done.file.id, uploadedBytes = s.sizeBytes, uploadSession = null))
     }
 
+    /** Blobs this backup needs that Drive does not have yet (a remote listing beats local memory, e.g. after a restore). */
+    private suspend fun pendingBlobs(s: BackupSnapshotEntity, folder: String): List<BackupBlobRefEntity> {
+        val refs = dao.refs(s.id)
+        if (refs.isEmpty()) return emptyList()
+        val remote = drive.listFolder(folder).filter { it.name.endsWith(BackupBlobs.EXT) }.associateBy { it.name }
+        return refs.distinctBy { it.blobName }.filter { ref ->
+            val r = remote[ref.blobName]
+            if (r != null) {
+                if (dao.blob(ref.blobName)?.verified != true) dao.upsertBlob(BackupBlobEntity(ref.blobName, r.appProperties[BackupBlobs.PROP_SHA] ?: "", s.keyId ?: "", r.id, r.size, true, clock()))
+                false
+            } else true
+        }
+    }
+
+    private suspend fun uploadBlob(ref: BackupBlobRefEntity, folder: String, kek: ByteArray, keyId: String) {
+        val src = File(attachmentsRoot, ref.localPath)
+        if (!src.exists()) throw IOException("attachment missing: ${src.name}")
+        val sha = ref.blobName.removePrefix("pkos-blob-$keyId-").removeSuffix(BackupBlobs.EXT)
+        val tmp = File(workDir, ref.blobName + ".tmp").apply { parentFile?.mkdirs() }
+        try {
+            BackupBlobs.encrypt(src, tmp, kek, keyId, sha)
+            val size = tmp.length(); val md5 = tmp.digestHex("MD5")
+            val session = drive.startResumableUpload(folder, ref.blobName, size, mapOf(BackupBlobs.PROP_SHA to sha, "pkos_key_id" to keyId))
+            var step: UploadStep = UploadStep.Partial(0)
+            while (step is UploadStep.Partial) {
+                val offset = step.nextOffset
+                step = drive.uploadChunk(session, tmp, offset, minOf(uploadChunk, size - offset), size)
+            }
+            val done = (step as UploadStep.Done).file
+            val remote = drive.getFile(done.id)
+            if (remote.size != size || !remote.md5.equals(md5, ignoreCase = true)) {
+                runCatching { drive.delete(remote.id) }
+                throw DriveException(DriveErrorKind.OTHER, "blob verify mismatch")
+            }
+            dao.upsertBlob(BackupBlobEntity(ref.blobName, sha, keyId, remote.id, size, true, clock()))
+        } finally { tmp.delete() }
+    }
+
     /** Applies the retention policy to verified backups; deletes only PKOS's own backup files on Drive. */
     suspend fun prune(): Int {
         val verified = dao.verified()
@@ -183,6 +231,12 @@ class BackupService(
         for (b in verified.filter { it.id !in keep }) {
             try { b.fileId?.let { drive.delete(it) } } catch (e: DriveException) { if (e.kind != DriveErrorKind.NOT_FOUND) continue }
             save(b.copy(status = BackupStatus.PRUNED)); removed++
+        }
+        // Blobs no kept backup points to any more (never one a kept or unfinished backup needs).
+        dao.dropDeadRefs()
+        for (blob in dao.orphanBlobs()) {
+            try { blob.fileId?.let { drive.delete(it) } } catch (e: DriveException) { if (e.kind != DriveErrorKind.NOT_FOUND) continue }
+            dao.deleteBlob(blob.name)
         }
         return removed
     }

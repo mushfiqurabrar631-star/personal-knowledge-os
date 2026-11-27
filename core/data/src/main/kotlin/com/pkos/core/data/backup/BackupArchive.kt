@@ -21,13 +21,16 @@ data class BackupManifest(
     val databaseSha256: String,
     val attachments: List<Entry>,
 ) {
-    data class Entry(val path: String, val sha256: String, val size: Long)
+    /** [blob]: format 2 — the file is not inside the archive but in its own encrypted Drive blob with this name. */
+    data class Entry(val path: String, val sha256: String, val size: Long, val blob: String? = null)
+
+    val blobEntries get() = attachments.filter { it.blob != null }
 
     fun toJson(): JSONObject = JSONObject()
-        .put("format", 1).put("backup_id", backupId).put("created_at", createdAt).put("app_version", appVersion)
+        .put("format", if (attachments.any { it.blob != null }) 2 else 1).put("backup_id", backupId).put("created_at", createdAt).put("app_version", appVersion)
         .put("schema_version", schemaVersion).put("item_count", itemCount).put("attachment_count", attachmentCount)
         .put("database", JSONObject().put("path", "database.sqlite").put("sha256", databaseSha256))
-        .put("attachments", JSONArray(attachments.map { JSONObject().put("path", it.path).put("sha256", it.sha256).put("size", it.size) }))
+        .put("attachments", JSONArray(attachments.map { JSONObject().put("path", it.path).put("sha256", it.sha256).put("size", it.size).apply { it.blob?.let { b -> put("blob", b) } } }))
 
     companion object {
         fun fromJson(o: JSONObject): BackupManifest {
@@ -35,7 +38,7 @@ data class BackupManifest(
             return BackupManifest(
                 o.getString("backup_id"), o.getLong("created_at"), o.getString("app_version"), o.getInt("schema_version"),
                 o.getInt("item_count"), o.getInt("attachment_count"), o.getJSONObject("database").getString("sha256"),
-                (0 until a.length()).map { a.getJSONObject(it).let { e -> Entry(e.getString("path"), e.getString("sha256"), e.getLong("size")) } },
+                (0 until a.length()).map { a.getJSONObject(it).let { e -> Entry(e.getString("path"), e.getString("sha256"), e.getLong("size"), e.optString("blob").ifBlank { null }) } },
             )
         }
     }
@@ -91,6 +94,8 @@ object BackupArchive {
         backupId: String,
         createdAt: Long,
         appVersion: String,
+        /** Non-null: incremental mode — attachments are listed (with their blob name) but not put in the archive. */
+        blobKeyId: String? = null,
     ): BackupManifest {
         val (schema, items, _) = checkDatabase(databaseSnapshot)
         val dbSha = databaseSnapshot.digestHex("SHA-256")
@@ -104,8 +109,12 @@ object BackupArchive {
             for ((file, name) in attachments) {
                 if (!file.exists()) continue // missing local file: recorded by absence, never invented
                 val sha = file.digestHex("SHA-256")
-                entries += BackupManifest.Entry("attachments/$name", sha, file.length())
-                put("attachments/$name", file)
+                if (blobKeyId != null) {
+                    entries += BackupManifest.Entry("attachments/$name", sha, file.length(), blobName(blobKeyId, sha))
+                } else {
+                    entries += BackupManifest.Entry("attachments/$name", sha, file.length())
+                    put("attachments/$name", file)
+                }
             }
             val manifest = BackupManifest(backupId, createdAt, appVersion, schema, items, entries.size, dbSha, entries)
             putText("metadata/schema-version.json", JSONObject().put("schema_version", schema).toString())
@@ -120,8 +129,13 @@ object BackupArchive {
         }
     }
 
-    /** Unzips into [dir] (rejecting path traversal) and verifies every checksum (spec 8.4 #28). */
-    fun extractAndVerify(zip: File, dir: File): BackupManifest {
+    fun blobName(keyId: String, sha256: String) = "pkos-blob-$keyId-$sha256.pkosblob"
+
+    /**
+     * Unzips into [dir] (rejecting path traversal) and verifies every checksum (spec 8.4 #28). With
+     * [deferBlobs], attachments stored as separate blobs are verified later, after they were downloaded.
+     */
+    fun extractAndVerify(zip: File, dir: File, deferBlobs: Boolean = false): BackupManifest {
         dir.mkdirs()
         val root = dir.canonicalFile
         ZipInputStream(zip.inputStream().buffered(1 shl 16)).use { z ->
@@ -137,7 +151,7 @@ object BackupArchive {
         val manifestFile = File(dir, "manifest.json")
         if (!manifestFile.exists()) throw CorruptBackupException("manifest missing")
         val manifest = BackupManifest.fromJson(JSONObject(manifestFile.readText()))
-        verifyChecksums(dir, manifest)
+        verifyChecksums(dir, if (deferBlobs) manifest.copy(attachments = manifest.attachments.filter { it.blob == null }) else manifest)
         return manifest
     }
 
