@@ -652,4 +652,18 @@
     <string name="ai_compat_https_only">Only https:// addresses work</string>
     <string name="ai_compat_key">API key (optional)</string>
     <string name="ai_compat_note">The key is encrypted with Android Keystore and stays on this phone. The same minimal data as Gemini is sent; local-only items never go. Meaning-search embeddings use Gemini only; offline search is used here.</string>
+    <string name="nav_knowledge_map">Knowledge map</string>
+    <string name="home_explore_map_body">How projects, topics and concepts connect</string>
+    <string name="map_empty_title">No map yet</string>
+    <string name="map_empty_body">Once a few items are organized, projects and concepts appear here.</string>
+    <string name="map_explainer">Computed on the phone and never sent. Project = main category; concept = a tag or keyword in at least two items.</string>
+    <string name="map_topics">Topics: %1$s</string>
+    <string name="map_cross">Linked with other projects: %1$s</string>
+    <string name="map_bridges">Concepts that join projects</string>
+    <string name="map_together">Often appear together</string>
+    <string name="map_recent">Recent items</string>
+    <plurals name="map_items">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
 </resources>

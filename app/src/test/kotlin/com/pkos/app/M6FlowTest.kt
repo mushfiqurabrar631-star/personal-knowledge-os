@@ -165,4 +165,21 @@ class M6FlowTest {
         pump { WorkManager.getInstance(ctx).getWorkInfosForUniqueWork(ReminderScheduler.NAME).get().any { !it.state.isFinished } }
         assertTrue(WorkManager.getInstance(ctx).getWorkInfosForUniqueWork(ReminderScheduler.NAME).get().any { !it.state.isFinished })
     }
+
+    @Test fun knowledgeMapShowsProjectsAndOpensItemsFromAConcept() {
+        val c = testContainer()
+        val b = save(c, "Kotlin Flow cold streams")
+        val d = save(c, "Kotlin coroutines guide")
+        runBlocking {
+            c.knowledge.editItem(b, "Kotlin Flow basics", null, listOf("kotlin", "android"), com.pkos.core.data.model.ItemStatus.TO_LEARN)
+            c.knowledge.editItem(d, "Kotlin coroutines guide", null, listOf("kotlin"), com.pkos.core.data.model.ItemStatus.TO_LEARN)
+            for (id in listOf(b, d)) c.database.knowledgeDao().get(id)!!.let { c.database.knowledgeDao().update(it.copy(categoryId = "sys-programming")) }
+        }
+        start(c)
+        home("home_open_map"); waitFor(hasTestTag("map_project"))
+        rule.onNodeWithTag("map_concept_kotlin").performScrollTo().performClick()
+        waitFor(hasText("• Kotlin Flow basics"))
+        rule.onAllNodes(hasText("• Kotlin Flow basics"), useUnmergedTree = true)[0].performClick()
+        waitFor(hasTestTag("item_detail"))
+    }
 }

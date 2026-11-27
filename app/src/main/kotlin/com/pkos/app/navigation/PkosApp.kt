@@ -165,6 +165,7 @@ fun PkosApp(
                         openBackupSync = { navController.navigate(BackupSyncRoute) },
                         openSettings = { openTab(SettingsRoute) },
                         openTimeline = { navController.navigate(TimelineRoute) },
+                        openMap = { navController.navigate(KnowledgeMapRoute) },
                         openActions = { navController.navigate(ActionsRoute) },
                         openCollections = { navController.navigate(CollectionsRoute) },
                     ),
@@ -184,6 +185,7 @@ fun PkosApp(
                         openCollections = { navController.navigate(CollectionsRoute) },
                         openActions = { navController.navigate(ActionsRoute) },
                         openTimeline = { navController.navigate(TimelineRoute) },
+                        openMap = { navController.navigate(KnowledgeMapRoute) },
                         onReplayOnboarding = { navController.navigate(OnboardingRoute) { popUpTo(0) { inclusive = true } } },
                     ),
                 )
@@ -202,6 +204,7 @@ fun PkosApp(
                     openItem = { navController.navigate(ItemDetailRoute(it)) }, openConnections = { navController.navigate(ConnectionsRoute(it)) },
                 )
             }
+            composable<KnowledgeMapRoute> { com.pkos.app.feature.knowledge.KnowledgeMapRoute(onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }) }
             composable<TimelineRoute> { com.pkos.app.feature.knowledge.TimelineRoute(onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }) }
             composable<ActionsRoute> { com.pkos.app.feature.knowledge.ActionsRoute(onBack = { navController.popBackStack() }, openItem = { navController.navigate(ItemDetailRoute(it)) }) }
             composable<CollectionsRoute> {

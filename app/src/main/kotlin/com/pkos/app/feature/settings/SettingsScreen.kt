@@ -125,6 +125,7 @@ data class SettingsActions(
     val openCollections: () -> Unit = {},
     val openActions: () -> Unit = {},
     val openTimeline: () -> Unit = {},
+    val openMap: () -> Unit = {},
 )
 
 @Composable
@@ -304,6 +305,7 @@ fun SettingsScreen(
                     LinkRow(Icons.Outlined.Checklist, stringResource(R.string.nav_actions), null, actions.openActions)
                     LinkRow(Icons.Outlined.Bookmarks, stringResource(R.string.nav_collections), null, actions.openCollections)
                     LinkRow(Icons.Outlined.Timeline, stringResource(R.string.nav_timeline), null, actions.openTimeline)
+                    LinkRow(Icons.Outlined.Hub, stringResource(R.string.nav_knowledge_map), null, actions.openMap)
                 }
             }
             item { SectionHeader(stringResource(R.string.settings_section_permissions)) }

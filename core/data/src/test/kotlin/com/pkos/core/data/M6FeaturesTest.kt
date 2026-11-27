@@ -299,4 +299,31 @@ class M6FeaturesTest {
         assertEquals(2, emb.embed("x")!!.size)
         assertNull(GeminiEmbeddingProvider("k", http = { _, _, _ -> throw java.io.IOException() }).embed("x"))
     }
+
+    // Phase 1 gap: library-wide map with projects and concepts (spec 9 #3)
+    @Test fun libraryMapShowsProjectsTopicsAndSharedConcepts() = runBlocking {
+        val g = GraphService(db, clock)
+        assertTrue(g.overview().nodes.isEmpty())
+        topic("tp-kotlin", "Kotlin")
+        val a = item("Coroutines guide", tags = listOf("kotlin", "async"), topic = "tp-kotlin")
+        val b = item("Flow basics", tags = listOf("kotlin", "async"), topic = "tp-kotlin")
+        val c = item("Kotlin course fees", tags = listOf("kotlin"), category = "sys-education")
+        item("Lonely note", tags = listOf("once"), category = "sys-unsorted")
+        db.knowledgeDao().get(c)!!.let { db.knowledgeDao().update(it.copy(keywords = "[\"async\"]")) }
+        val dup = item("Flow basics copy", tags = listOf("kotlin"))
+        db.knowledgeDao().get(dup)!!.let { db.knowledgeDao().update(it.copy(duplicateOfId = b)) }
+        g.link(a, c)
+        val map = g.overview()
+        val projects = map.nodes.filter { it.type == NodeType.CATEGORY }
+        assertEquals(setOf("sys-programming", "sys-education"), projects.map { it.id }.toSet()) // unsorted is not a project
+        assertEquals(2, projects.first { it.id == "sys-programming" }.items) // the duplicate is not counted
+        val concepts = map.nodes.filter { it.type == NodeType.CONCEPT }.associateBy { it.id }
+        assertEquals(setOf("kotlin", "async"), concepts.keys) // "once" is used by one item only
+        assertEquals(3, concepts.getValue("kotlin").items); assertEquals(3, concepts.getValue("async").items) // keyword counts too
+        assertTrue(map.edges.any { it.from == "TOPIC:tp-kotlin" && it.to == "CATEGORY:sys-programming" && it.reason == EdgeReason.IN_PROJECT && it.weight == 2 })
+        assertTrue(map.edges.any { it.from == "CONCEPT:kotlin" && it.to == "CATEGORY:sys-education" && it.reason == EdgeReason.CONCEPT_IN })
+        assertTrue(map.edges.any { it.reason == EdgeReason.CO_OCCURS && setOf(it.from, it.to) == setOf("CONCEPT:async", "CONCEPT:kotlin") && it.weight == 3 })
+        assertTrue(map.edges.any { it.reason == EdgeReason.CROSS_LINK && it.weight == 1 })
+        assertTrue(concepts.getValue("kotlin").sampleItemIds.containsAll(listOf(a, b, c)))
+    }
 }

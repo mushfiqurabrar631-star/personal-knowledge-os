@@ -11,7 +11,7 @@ import com.pkos.core.data.model.ItemStatus
 import org.json.JSONObject
 import java.util.UUID
 
-enum class NodeType { ITEM, CATEGORY, TOPIC, TAG }
+enum class NodeType { ITEM, CATEGORY, TOPIC, TAG, CONCEPT }
 
 /** One relationship with its reason and confidence (spec 9 #3). */
 data class Edge(
@@ -29,6 +29,18 @@ object EdgeReason {
     const val CATEGORY = "category"; const val TOPIC = "topic"; const val SUBTOPIC = "subtopic"; const val TAG = "tag"
     const val SHARED_TAGS = "shared_tags"; const val SAME_TOPIC = "same_topic"; const val SIMILAR_TEXT = "similar_text"
     const val DUPLICATE = "duplicate"; const val USER_LINK = "user_link"; const val AI_RELATED = "ai_related"
+    const val IN_PROJECT = "in_project"; const val CONCEPT_IN = "concept_in"; const val CO_OCCURS = "co_occurs"; const val CROSS_LINK = "cross_link"
+}
+
+/** A hub on the library map: a project (main category), a topic, or a concept (tag/keyword used by several items). */
+data class MapNode(val type: NodeType, val id: String, val label: String, val items: Int, val sampleItemIds: List<String> = emptyList())
+
+/** Hub-to-hub relation; [weight] = number of items behind it. Ids are "<type>:<id>" of [MapNode]s. */
+data class MapEdge(val from: String, val to: String, val reason: String, val weight: Int)
+
+data class KnowledgeMap(val nodes: List<MapNode>, val edges: List<MapEdge>) {
+    fun key(n: MapNode) = "${n.type.name}:${n.id}"
+    fun node(key: String) = nodes.firstOrNull { key(it) == key }
 }
 
 /**
@@ -82,6 +94,55 @@ class GraphService(private val db: PkosDatabase, private val clock: () -> Long =
         return out
     }
 
+    /**
+     * Library-wide map (spec 9 #3): projects (main categories), their topics, and concepts — tags and keywords shared by
+     * at least [minItems] items — with how they connect across projects. Computed on the phone, never stored, never sent.
+     */
+    suspend fun overview(maxConcepts: Int = 40, minItems: Int = 2): KnowledgeMap {
+        val items = dao.liveItems().filter { it.duplicateOfId == null }
+        if (items.isEmpty()) return KnowledgeMap(emptyList(), emptyList())
+        val byRecent = items.sortedByDescending { it.updatedAt }
+        val categories = db.categoryDao().let { d -> items.mapNotNull { it.categoryId }.distinct().mapNotNull { d.get(it) } }
+            .filter { it.id != UNSORTED }.associateBy { it.id }
+        val topics = dao.topics().associateBy { it.id }
+        val tagMap = dao.itemTags().groupBy({ it.itemId }, { it.name.trim().lowercase() })
+        val conceptsOf = items.associate { i ->
+            i.id to (tagMap[i.id].orEmpty() + SearchService.jsonWords(i.keywords).map { it.trim().lowercase() }).filter { it.length >= 2 }.toSet()
+        }
+        val nodes = mutableListOf<MapNode>()
+        val edges = mutableListOf<MapEdge>()
+        fun sample(ids: Collection<String>) = byRecent.asSequence().map { it.id }.filter { it in ids }.take(5).toList()
+
+        val inCat = items.filter { it.categoryId in categories }.groupBy { it.categoryId!! }
+        for ((cid, list) in inCat) nodes += MapNode(NodeType.CATEGORY, cid, categories.getValue(cid).name, list.size, sample(list.map { it.id }.toSet()))
+        val inTopic = items.filter { it.topicId in topics }.groupBy { it.topicId!! }
+        for ((tid, list) in inTopic) {
+            nodes += MapNode(NodeType.TOPIC, tid, topics.getValue(tid).name, list.size, sample(list.map { it.id }.toSet()))
+            list.groupingBy { it.categoryId }.eachCount().forEach { (cid, n) -> if (cid in categories) edges += MapEdge("TOPIC:$tid", "CATEGORY:$cid", EdgeReason.IN_PROJECT, n) }
+        }
+        val holders = mutableMapOf<String, MutableSet<String>>()
+        conceptsOf.forEach { (id, cs) -> cs.forEach { holders.getOrPut(it) { mutableSetOf() } += id } }
+        val chosen = holders.filter { it.value.size >= minItems }.entries.sortedWith(compareByDescending<Map.Entry<String, MutableSet<String>>> { it.value.size }.thenBy { it.key })
+            .take(maxConcepts).associate { it.key to it.value }
+        val itemById = items.associateBy { it.id }
+        for ((c, ids) in chosen) {
+            nodes += MapNode(NodeType.CONCEPT, c, c, ids.size, sample(ids))
+            ids.mapNotNull { itemById[it]?.categoryId }.filter { it in categories }.groupingBy { it }.eachCount()
+                .forEach { (cid, n) -> edges += MapEdge("CONCEPT:$c", "CATEGORY:$cid", EdgeReason.CONCEPT_IN, n) }
+        }
+        val names = chosen.keys.sorted()
+        for ((i, a) in names.withIndex()) for (b in names.drop(i + 1)) {
+            val n = chosen.getValue(a).count { it in chosen.getValue(b) }
+            if (n >= minItems) edges += MapEdge("CONCEPT:$a", "CONCEPT:$b", EdgeReason.CO_OCCURS, n)
+        }
+        // Owner links and AI suggestions that join items in different projects.
+        dao.allLinks().mapNotNull { l ->
+            val a = itemById[l.fromId]?.categoryId?.takeIf { it in categories }; val b = itemById[l.toId]?.categoryId?.takeIf { it in categories }
+            if (a == null || b == null || a == b) null else listOf(a, b).sorted().let { it[0] to it[1] }
+        }.groupingBy { it }.eachCount().forEach { (p, n) -> edges += MapEdge("CATEGORY:${p.first}", "CATEGORY:${p.second}", EdgeReason.CROSS_LINK, n) }
+        return KnowledgeMap(nodes.sortedWith(compareBy<MapNode> { it.type.ordinal }.thenByDescending { it.items }.thenBy { it.label }), edges.sortedByDescending { it.weight })
+    }
+
     /** Owner confirms a relation; kept forever unless the owner removes it. */
     suspend fun link(fromId: String, toId: String, relation: String = "related", note: String? = null): Boolean {
         if (fromId == toId) return false
@@ -92,6 +153,8 @@ class GraphService(private val db: PkosDatabase, private val clock: () -> Long =
     suspend fun unlink(linkId: String) = dao.deleteUserLink(linkId)
 
     private fun text(i: KnowledgeItemEntity) = listOfNotNull(i.title, i.summary, i.rawText?.take(600)).joinToString(" ")
+
+    private companion object { const val UNSORTED = "sys-unsorted" }
 }
 
 /**

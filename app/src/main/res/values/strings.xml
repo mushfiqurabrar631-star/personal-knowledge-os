@@ -671,4 +671,18 @@
     <string name="ai_compat_https_only">শুধু https:// ঠিকানা চলবে</string>
     <string name="ai_compat_key">API কী (ঐচ্ছিক)</string>
     <string name="ai_compat_note">কী Android Keystore-এ এনক্রিপ্ট হয়ে শুধু এই ফোনে থাকে। Gemini-এর মতোই কম তথ্য যায়; “শুধু ফোনে” আইটেম কখনো যায় না। অর্থভিত্তিক সার্চের এমবেডিং শুধু Gemini দিয়ে হয়—এখানে অফলাইন সার্চ চলবে।</string>
+    <string name="nav_knowledge_map">জ্ঞান মানচিত্র</string>
+    <string name="home_explore_map_body">প্রজেক্ট, টপিক ও ধারণা কীভাবে জুড়ে আছে</string>
+    <string name="map_empty_title">এখনো মানচিত্র নেই</string>
+    <string name="map_empty_body">কয়েকটি আইটেম সাজানো হলে প্রজেক্ট ও ধারণাগুলো এখানে দেখা যাবে।</string>
+    <string name="map_explainer">ফোনেই হিসাব করা হয়, কোথাও পাঠানো হয় না। প্রজেক্ট = প্রধান ক্যাটাগরি; ধারণা = অন্তত দুটি আইটেমে থাকা ট্যাগ বা কী-ওয়ার্ড।</string>
+    <string name="map_topics">টপিক: %1$s</string>
+    <string name="map_cross">অন্য প্রজেক্টের সাথে লিংক: %1$s</string>
+    <string name="map_bridges">যেসব ধারণা একাধিক প্রজেক্টকে জোড়ে</string>
+    <string name="map_together">প্রায়ই একসাথে আসে</string>
+    <string name="map_recent">সাম্প্রতিক আইটেম</string>
+    <plurals name="map_items">
+        <item quantity="one">%1$d টি আইটেম</item>
+        <item quantity="other">%1$d টি আইটেম</item>
+    </plurals>
 </resources>

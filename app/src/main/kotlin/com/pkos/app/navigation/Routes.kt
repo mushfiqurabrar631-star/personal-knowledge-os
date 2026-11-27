@@ -16,6 +16,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class ItemDetailRoute(val id: String)
 @Serializable data class EditItemRoute(val id: String)
 @Serializable data object TimelineRoute
+@Serializable data object KnowledgeMapRoute
 @Serializable data object ActionsRoute
 @Serializable data object CollectionsRoute
 @Serializable data object ExportRoute

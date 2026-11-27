@@ -533,6 +533,9 @@ interface FeatureDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertLink(l: com.pkos.core.data.db.entity.KnowledgeLinkEntity): Long
 
+    @Query("SELECT * FROM knowledge_links")
+    suspend fun allLinks(): List<com.pkos.core.data.db.entity.KnowledgeLinkEntity>
+
     @Query("SELECT * FROM knowledge_links WHERE from_id = :id OR to_id = :id")
     suspend fun linksFor(id: String): List<com.pkos.core.data.db.entity.KnowledgeLinkEntity>
 

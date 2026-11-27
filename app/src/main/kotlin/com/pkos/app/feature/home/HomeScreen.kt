@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.SyncAlt
 import androidx.compose.material.icons.outlined.Topic
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -84,6 +85,7 @@ data class HomeActions(
     val openBackupSync: () -> Unit,
     val openSettings: () -> Unit,
     val openTimeline: () -> Unit = {},
+    val openMap: () -> Unit = {},
     val openActions: () -> Unit = {},
     val openCollections: () -> Unit = {},
     val dismissNext: (String) -> Unit = {},
@@ -218,6 +220,7 @@ private fun HomeContent(state: HomeUiState.Ready, actions: HomeActions, onDismis
                 NavigationRowCard(Icons.Outlined.Checklist, stringResource(R.string.nav_actions), stringResource(R.string.home_explore_actions_body), actions.openActions, Modifier.fillMaxWidth().testTag("home_open_actions"))
                 NavigationRowCard(Icons.Outlined.Bookmarks, stringResource(R.string.nav_collections), stringResource(R.string.home_explore_collections_body), actions.openCollections, Modifier.fillMaxWidth().testTag("home_open_collections"))
                 NavigationRowCard(Icons.Outlined.Timeline, stringResource(R.string.nav_timeline), stringResource(R.string.home_explore_timeline_body), actions.openTimeline, Modifier.fillMaxWidth().testTag("home_open_timeline"))
+                NavigationRowCard(Icons.Outlined.Hub, stringResource(R.string.nav_knowledge_map), stringResource(R.string.home_explore_map_body), actions.openMap, Modifier.fillMaxWidth().testTag("home_open_map"))
             }
         }
     }
