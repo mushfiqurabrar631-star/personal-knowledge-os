@@ -17,6 +17,22 @@ val localProps = Properties().apply {
 }
 val pkosDebugKeystore: File? = localProps.getProperty("pkos.debugKeystore")?.let { file(it) }?.takeIf { it.exists() }
 
+// Release signing (M8). The owner keeps the release keystore and passwords on their own computer only. Values come from
+// environment variables (CI secrets) or local.properties — never from a committed file. Without them the release build
+// is produced unsigned, exactly as before.
+fun releaseProp(env: String, key: String): String? = System.getenv(env)?.takeIf { it.isNotBlank() } ?: localProps.getProperty(key)?.takeIf { it.isNotBlank() }
+val pkosReleaseKeystore: File? = releaseProp("PKOS_RELEASE_STORE_FILE", "pkos.releaseKeystore")?.let { file(it) }?.takeIf { it.exists() }
+val pkosReleaseStorePassword = releaseProp("PKOS_RELEASE_STORE_PASSWORD", "pkos.releaseStorePassword")
+val pkosReleaseKeyAlias = releaseProp("PKOS_RELEASE_KEY_ALIAS", "pkos.releaseKeyAlias")
+val pkosReleaseKeyPassword = releaseProp("PKOS_RELEASE_KEY_PASSWORD", "pkos.releaseKeyPassword") ?: pkosReleaseStorePassword
+val releaseSigningReady = pkosReleaseKeystore != null && pkosReleaseStorePassword != null && pkosReleaseKeyAlias != null
+
+// ABI splits make per-device APKs (arm64 etc.) much smaller than the universal APK. Off with -Ppkos.noAbiSplits=true.
+// An app bundle (.aab) does its own ABI split on Google Play and cannot be built together with APK splits
+// (issuetracker 402800800), so build `bundleRelease` in its own Gradle run.
+val bundleRequested = gradle.startParameter.taskNames.any { it.substringAfterLast(':').startsWith("bundle") }
+val abiSplits = (findProperty("pkos.noAbiSplits") as String?)?.toBoolean() != true && !bundleRequested
+
 android {
     namespace = "com.pkos.app"
     compileSdk {
@@ -27,8 +43,9 @@ android {
         applicationId = "com.pkos.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.7.0-m7"
+        // 1.0.0 → 10000 (major*10000 + minor*100 + patch); higher than every earlier build (versionCode 1).
+        versionCode = 10000
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -41,6 +58,17 @@ android {
                 keyPassword = localProps.getProperty("pkos.debugKeystorePassword")
             }
         }
+        if (releaseSigningReady) {
+            create("pkosRelease") {
+                storeFile = pkosReleaseKeystore
+                storePassword = pkosReleaseStorePassword
+                keyAlias = pkosReleaseKeyAlias
+                keyPassword = pkosReleaseKeyPassword
+                enableV1Signing = false // minSdk 26: v2 + v3 signatures
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
     }
 
     buildTypes {
@@ -50,9 +78,43 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            // Minification is enabled only after it has been tested (spec 5.3).
-            isMinifyEnabled = false
+            // R8 code shrinking + resource shrinking (M8). Keep rules for reflection/JNI users are in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseSigningReady) signingConfig = signingConfigs.getByName("pkosRelease")
+        }
+        // CI-only check of the shrunk code at runtime: same R8 settings as release, debug-signed, separate app id, so
+        // an emulator can install and launch it. Never distributed.
+        create("r8check") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".r8check"
+            versionNameSuffix = "-r8check"
+            matchingFallbacks += listOf("release")
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = abiSplits
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            isUniversalApk = true // one APK that runs everywhere, for simple sideloading
+        }
+    }
+
+    bundle {
+        abi { enableSplit = true }
+        density { enableSplit = true }
+        // The app switches language inside Settings, so every language must be on the device.
+        language { enableSplit = false }
+    }
+
+    packaging {
+        resources {
+            // Post-quantum parameter tables from BouncyCastle (pulled in by pdfbox-android); PKOS never uses them.
+            excludes += listOf("org/bouncycastle/pqc/**/*.properties", "META-INF/versions/9/OSGI-INF/MANIFEST.MF")
         }
     }
 
@@ -115,6 +177,12 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
