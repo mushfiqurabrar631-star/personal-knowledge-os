@@ -1,0 +1,4 @@
+PKOS-TEST কাজের তালিকা
+TODO: ব্যাংকে নতুন সঞ্চয় হিসাব খুলতে হবে
+করতে হবে: বাজেট শিট হালনাগাদ
+Action: send the weekly report

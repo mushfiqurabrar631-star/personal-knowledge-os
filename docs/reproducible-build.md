@@ -33,6 +33,12 @@ rm -rf a/META-INF b/META-INF && diff -r a b && echo "same contents"
 ```
 (`diffoscope` gives a more detailed report if installed.)
 
+## Note: the commit is inside the APK
+The Android Gradle Plugin writes `META-INF/version-control-info.textproto` (the Git commit hash) into release builds.
+So two builds are byte-identical only when made from the **same commit** (and an uncommitted change does not alter
+it, so always build from a clean checkout). This also lets anyone read which commit a given APK came from:
+`unzip -p app.apk META-INF/version-control-info.textproto`.
+
 ## Known limits
 - The Gradle wrapper has no `distributionSha256Sum` yet. Owner step: copy the official checksum for
   `gradle-9.9.2-bin.zip` from gradle.org/release-checksums into `gradle-wrapper.properties`

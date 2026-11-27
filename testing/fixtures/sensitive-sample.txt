@@ -1,0 +1,3 @@
+PKOS-TEST sensitive sample (all values are FAKE test data)
+Your OTP is 482913. Do not share it.
+Card: 4111 1111 1111 1111 (public test number)

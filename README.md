@@ -12,6 +12,7 @@ Plan and Pass/Fail records: [Final Testing Plan](docs/final-testing-plan.md) (`t
 
 | Guide | For |
 |---|---|
+| [Owner prerequisites](docs/owner-prerequisites.md) | release key, OAuth client, Gradle checksum, phone prep — before Final Testing |
 | [Installation guide](docs/installation-guide.md) | which APK, installing, updating |
 | [Setup guide](docs/setup-guide.md) | Notion, Google Drive, cloud AI, optional features |
 | [A-to-Z user guide](docs/user-guide.md) | every feature |
@@ -24,7 +25,7 @@ Plan and Pass/Fail records: [Final Testing Plan](docs/final-testing-plan.md) (`t
 Development reports: M1 [report](docs/m1-report.md) · M2 [report](docs/m2-report.md) · M3 [report](docs/m3-report.md) ·
 M4 [report](docs/m4-report.md) · M5 [report](docs/m5-report.md) ([backup guide](docs/backup-restore-guide.md)) ·
 M6 [report](docs/m6-report.md) · M7 [report](docs/m7-report.md) · Phase 1 [report](docs/phase1-report.md) ·
-Phase 2 / M8 [report](docs/phase2-report.md) · [CHECKLIST](CHECKLIST.md).
+Phase 2 / M8 [report](docs/phase2-report.md) · Phase 3/4 [readiness](docs/phase34-readiness-report.md) · [CHECKLIST](CHECKLIST.md).
 
 ## Modules
 | Module | Type | Purpose |

@@ -23,6 +23,10 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 - No emulator (no KVM): UI verified with Robolectric Compose tests and Roborazzi screenshots; device install by owner.
 
 ## Last verified checkpoint
+2026-11-27 — Phase 3/4 preparation: 96 Final Testing cases with full procedures (5 CI · 4 owner PC · 87 phone; 5 destructive),
+fixtures, regression/secret-scan scripts; scripts/run-regression.sh: 294 JUnit tests 0 failures, lint 0 errors, all builds OK.
+Final Testing NOT started (96 NOT_RUN) — waiting for owner prerequisites. Report: docs/phase34-readiness-report.md.
+
 2026-11-27 — Phase 2 / M8 release development (1.0.0, versionCode 10000): :core:notion 56/56, :core:data 122/122,
 :app 68/68, screenshots 48/48, lint 0 errors, debug/release/r8check/androidTest/AAB builds OK, release reproducible
 (2 clean builds identical). CI run 46032352351: build ✓, emulator 4/4 device tests ✓, R8 launch + monkey ✓. Final Testing not
