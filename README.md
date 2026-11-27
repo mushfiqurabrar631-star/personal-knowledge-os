@@ -5,16 +5,26 @@ organized by hybrid AI → encrypted Google Drive backup → synced to the owner
 Master Database. Specification: *Personal Knowledge OS Master Build Specification v1.0*.
 
 ## Status
-Current version: **0.7.0-m7** (`versionName`; debug build shows `0.7.0-m7-debug`, app id `com.pkos.app.debug`).
+Version **1.0.0** (versionCode 10000) — **release candidate. Development (M1–M8) is done and automated tests pass;
+Final Testing on the owner's phone has not started**, so 1.0.0 is not yet declared released.
+Plan and Pass/Fail records: [Final Testing Plan](docs/final-testing-plan.md) (`testing/final-testing-results.csv`,
+`python3 scripts/testplan.py check|gate`).
 
-See [CHECKLIST.md](CHECKLIST.md). Done: M1 app shell ([report](docs/m1-report.md)) · M2 capture ([report](docs/m2-report.md)) ·
-M3 processing ([report](docs/m3-report.md)) · M4 Notion integration ([report](docs/m4-report.md)) ·
-**M5 encrypted Drive backup — built & tested, real-Drive verification pending** ([report](docs/m5-report.md), [guide](docs/backup-restore-guide.md)) ·
-**M6 search & advanced features — automated tests and local builds pass; real-device checks (reminders, export picker, Gemini) not yet done** ([report](docs/m6-report.md#3-real-device-verification-not-yet-done--owner-on-the-phone)): offline FTS + meaning search, cited Ask,
-knowledge graph, topic de-duplication, recommendations, timeline, confirm-first tasks, opt-in reminders, smart collections, zip export + integrity check.
-Limitations: single-turn Ask, no import of the export ZIP (restore = M5 Drive backup).
-**M7 hardening — automated audits, fixes and spec §10.1 privacy controls done; M7 is *not* complete until the phone acceptance checks pass** ([report](docs/m7-report.md), [phone guide](docs/m7-acceptance-guide.md), [old debug key](docs/security-debug-keystore-history.md)).
-**Phase 1 (10 development gaps) — built and automated tests pass; not yet verified on a phone** ([report](docs/phase1-report.md)).
+| Guide | For |
+|---|---|
+| [Installation guide](docs/installation-guide.md) | which APK, installing, updating |
+| [Setup guide](docs/setup-guide.md) | Notion, Google Drive, cloud AI, optional features |
+| [A-to-Z user guide](docs/user-guide.md) | every feature |
+| [Release signing & OAuth](docs/release-signing-and-oauth.md) | release key, SHA-1, Android OAuth clients |
+| [Recovery runbook](docs/recovery-runbook.md) | lost phone, lost keys, failed restore |
+| [Reproducible build](docs/reproducible-build.md) | pinned toolchain, verifying an APK |
+| [Security & limitations](docs/security-and-limitations.md) | security model, known limits |
+| [Changelog](CHANGELOG.md) | what changed |
+
+Development reports: M1 [report](docs/m1-report.md) · M2 [report](docs/m2-report.md) · M3 [report](docs/m3-report.md) ·
+M4 [report](docs/m4-report.md) · M5 [report](docs/m5-report.md) ([backup guide](docs/backup-restore-guide.md)) ·
+M6 [report](docs/m6-report.md) · M7 [report](docs/m7-report.md) · Phase 1 [report](docs/phase1-report.md) ·
+Phase 2 / M8 [report](docs/phase2-report.md) · [CHECKLIST](CHECKLIST.md).
 
 ## Modules
 | Module | Type | Purpose |
@@ -24,24 +34,29 @@ Limitations: single-turn Ask, no import of the export ZIP (restore = M5 Drive ba
 | `core/notion` | Kotlin/JVM | Notion schema guard, option-safe mapper, idempotent crash-safe sync engine, file upload; `testFixtures` FakeNotion |
 
 ## Build
-Requirements: JDK 17+ (21 used), Android SDK with `platforms;android-37.2` and `build-tools;37.0.0`.
+Requirements: JDK 17+ (Temurin 21 used), Android SDK with `platforms;android-37.2` and `build-tools;37.0.0`.
 
 ```bash
 echo "sdk.dir=/path/to/android-sdk" > local.properties
-./gradlew :app:assembleDebug                 # APK → app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:assembleRelease               # unsigned → app/build/outputs/apk/release/app-release-unsigned.apk
+./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-{arm64-v8a,armeabi-v7a,x86_64,x86,universal}-debug.apk
+./gradlew :app:assembleRelease      # R8-shrunk; unsigned unless PKOS_RELEASE_* is set (see release-signing-and-oauth.md)
+./gradlew :app:bundleRelease        # app/build/outputs/bundle/release/app-release.aab (separate run from APK builds)
+./scripts/build-signed-release.sh   # owner's computer only: signed APKs + AAB, prints SHA-1/SHA-256
 ./gradlew :core:notion:test :core:data:testDebugUnitTest :app:testDebugUnitTest
 ./gradlew :app:lintDebug :core:data:lintDebug
-./gradlew :app:recordRoborazziDebug          # screenshots → docs/screenshots/m1..m7/
+./gradlew :app:recordRoborazziDebug # screenshots → docs/screenshots/m1..m7/
+./gradlew :app:connectedDebugAndroidTest   # device smoke tests (needs an emulator or phone)
 ```
-Offline check of the Notion core only: `./scripts/verify-core-notion.sh`.
+`-Ppkos.noAbiSplits=true` builds a single APK per build type.
 
-CI (GitHub Actions) runs the same tests, lint, screenshots and debug + release builds on every push; artifacts:
-`pkos-<run>-debug-apk`, `pkos-<run>-release-unsigned-apk`, `pkos-<run>-screenshots`, `pkos-<run>-test-and-lint-reports`.
+CI (GitHub Actions, free runners): tests, lint, screenshots, debug/release/R8-check APKs, AAB, plus an emulator job
+(API 34) with instrumentation tests and an R8 launch + monkey smoke. Artifacts: `pkos-<run>-debug-apk`,
+`pkos-<run>-release-unsigned` (APKs, AAB, mapping), `pkos-<run>-instrumentation-reports`, screenshots and reports.
+No signing key or secret is stored in GitHub.
 
 ## Install on a phone
-Enable *Install unknown apps* for your file manager, open `app-debug.apk`. The debug build installs as
-**PKOS** with id `com.pkos.app.debug`, so it never conflicts with a later release build.
+See the [installation guide](docs/installation-guide.md). Debug installs as `com.pkos.app.debug`, release as
+`com.pkos.app` — they never conflict.
 
 ## Notion setup (owner)
 1. notion.so/profile/integrations → New integration → type **Internal**, capabilities: Read, Update, Insert content.

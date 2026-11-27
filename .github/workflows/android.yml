@@ -22,6 +22,9 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Final Testing records are valid (no PASS without evidence)
+        run: python3 scripts/testplan.py check
+
       # Unit, DAO (incl. Room migration v1→v7), Notion/Drive engine and Compose UI tests (Robolectric).
       - name: Tests
         run: ./gradlew --no-daemon --continue :core:notion:test :core:data:testDebugUnitTest :app:testDebugUnitTest
