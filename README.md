@@ -12,8 +12,9 @@ M3 processing ([report](docs/m3-report.md)) · M4 Notion integration ([report](d
 **M5 encrypted Drive backup — built & tested, real-Drive verification pending** ([report](docs/m5-report.md), [guide](docs/backup-restore-guide.md)) ·
 **M6 search & advanced features — automated tests and local builds pass; real-device checks (reminders, export picker, Gemini) not yet done** ([report](docs/m6-report.md#3-real-device-verification-not-yet-done--owner-on-the-phone)): offline FTS + meaning search, cited Ask,
 knowledge graph, topic de-duplication, recommendations, timeline, confirm-first tasks, opt-in reminders, smart collections, zip export + integrity check.
-Limitations: single-turn Ask, per-item graph only, no import of the export ZIP (restore = M5 Drive backup).
+Limitations: single-turn Ask, no import of the export ZIP (restore = M5 Drive backup).
 **M7 hardening — automated audits, fixes and spec §10.1 privacy controls done; M7 is *not* complete until the phone acceptance checks pass** ([report](docs/m7-report.md), [phone guide](docs/m7-acceptance-guide.md), [old debug key](docs/security-debug-keystore-history.md)).
+**Phase 1 (10 development gaps) — built and automated tests pass; not yet verified on a phone** ([report](docs/phase1-report.md)).
 
 ## Modules
 | Module | Type | Purpose |
