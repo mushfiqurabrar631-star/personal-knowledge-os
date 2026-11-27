@@ -11,7 +11,7 @@ no key or password is in the repository.
 | 2 | R8 + resource shrinking | `isMinifyEnabled` + `isShrinkResources`; keep rules for Tesseract JNI, pdfbox resources, BouncyCastle, stored enum names, workers | Release builds; mapping checked (TessBaseAPI, workers, `PkosDatabase_Impl` kept). CI emulator: shrunk `r8check` build launched + 300 monkey events, no crash |
 | 3 | ABI splits + AAB | arm64-v8a / armeabi-v7a / x86_64 / x86 + universal; `bundleRelease` (separate Gradle run; APK splits auto-off for bundle tasks) | arm64 release 34.3 MB (was 102.5 MB universal unshrunk); arm64 debug 57.7 MB (was 111 MB); AAB 50.6 MB |
 | 4 | Release OAuth / package / SHA-1 docs | `docs/release-signing-and-oauth.md` | — |
-| 5 | CI instrumentation | `androidTest/DeviceSmokeTest` (real Keystore, SQLite search, Tesseract native + Bengali model, app launch); CI emulator job (API 34) + R8 smoke; test-count check added; testplan record check | CI run 46023242628 (commit 14ebb41): build ✓, instrumentation ✓ |
+| 5 | CI instrumentation | `androidTest/DeviceSmokeTest` (real Keystore, SQLite search, Tesseract native + Bengali model, app launch); CI emulator job (API 34) + R8 smoke; test-count check added; testplan record check | CI run 46032352351: 4/4 device tests, R8 smoke ✓ |
 | 6 | Documentation | README, installation, setup, A-to-Z user guide, OAuth, recovery runbook, reproducible build | `docs/` |
 | 7 | Version + changelog | 1.0.0 / 10000, `CHANGELOG.md` | — |
 | 8 | Final Testing Plan + Pass/Fail system | 96 cases in 17 areas (`testing/final-testing-results.csv`, all NOT_RUN), `scripts/testplan.py check/gate/render/set` refuses PASS without date, build, device and evidence | `docs/final-testing-plan.md` |
@@ -21,8 +21,10 @@ no key or password is in the repository.
 `:core:notion` 56/56 · `:core:data` 122/122 · `:app` 68/68 · screenshots 48/48 · lint 0 errors (app, core:data) ·
 assembleDebug, assembleRelease, assembleR8check, assembleDebugAndroidTest, bundleRelease all OK.
 Reproducibility: two clean `assembleRelease` runs gave identical SHA-256 for all 5 unsigned release APKs.
-The androidTest suite cannot run here (no emulator); it ran on the CI emulator. The per-test count is now printed by
-CI from the next run on (the first run's report artifact could not be downloaded from the sandbox).
+The androidTest suite cannot run on the build machine (no emulator); it runs on the CI emulator (API 34 x86_64).
+CI run 46032352351 (commit 94dc5fe): build ✓; instrumentation ✓ — "instrumentation test cases run: 4" (all passed),
+R8 `r8check` build launched, 300 monkey events, no crash. (An earlier run hung on a count command that read stdin;
+it was cancelled and fixed.)
 
 ## Not done / remaining (before 1.0.0 can be called released)
 - Owner: create the release keystore on your computer, build with `scripts/build-signed-release.sh`, add the release

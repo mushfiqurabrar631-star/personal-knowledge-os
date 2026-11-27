@@ -25,7 +25,7 @@ Status legend: ✅ done & tested · 🟡 partly done · ⬜ not started · 🔒 
 ## Last verified checkpoint
 2026-11-27 — Phase 2 / M8 release development (1.0.0, versionCode 10000): :core:notion 56/56, :core:data 122/122,
 :app 68/68, screenshots 48/48, lint 0 errors, debug/release/r8check/androidTest/AAB builds OK, release reproducible
-(2 clean builds identical). CI run 46023242628: build + emulator instrumentation + R8 smoke passed. Final Testing not
+(2 clean builds identical). CI run 46032352351: build ✓, emulator 4/4 device tests ✓, R8 launch + monkey ✓. Final Testing not
 started (docs/final-testing-plan.md, 96 cases NOT_RUN). Report: docs/phase2-report.md.
 
 2026-11-27 — Phase 1 (10 M1–M7 gaps, DB v7): :core:notion 56/56, :core:data 122/122, :app 68/68, screenshots 48/48,
